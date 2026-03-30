@@ -1,6 +1,6 @@
 import yaml
 
-from reader.feed import load_feeds, save_feeds
+from reader.feed import load_feeds, parse_last_fetched, save_feeds
 
 
 class TestLoadFeeds:
@@ -36,3 +36,29 @@ class TestSaveFeeds:
         save_feeds(data, feed_yaml)
         content = feed_yaml.read_text(encoding="utf-8")
         assert "日本語フィード" in content
+
+
+class TestParseLastFetched:
+    def test_iso_with_timezone(self):
+        from datetime import datetime, timezone
+        result = parse_last_fetched({"last_fetched": "2026-03-10T00:00:00+00:00"})
+        assert result == datetime(2026, 3, 10, 0, 0, 0, tzinfo=timezone.utc)
+
+    def test_iso_without_timezone_assumes_utc(self):
+        from datetime import datetime, timezone
+        result = parse_last_fetched({"last_fetched": "2026-03-10T00:00:00"})
+        assert result == datetime(2026, 3, 10, 0, 0, 0, tzinfo=timezone.utc)
+
+    def test_non_utc_timezone_normalized(self):
+        from datetime import datetime, timezone, timedelta
+        result = parse_last_fetched({"last_fetched": "2026-03-10T09:00:00+09:00"})
+        assert result == datetime(2026, 3, 10, 0, 0, 0, tzinfo=timezone.utc)
+
+    def test_missing_returns_none(self):
+        assert parse_last_fetched({}) is None
+
+    def test_empty_string_returns_none(self):
+        assert parse_last_fetched({"last_fetched": ""}) is None
+
+    def test_invalid_format_returns_none(self):
+        assert parse_last_fetched({"last_fetched": "not-a-date"}) is None

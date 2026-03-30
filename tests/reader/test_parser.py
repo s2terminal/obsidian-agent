@@ -1,9 +1,10 @@
 import hashlib
+from datetime import datetime, timezone
 from time import struct_time
 
 import pytest
 
-from reader.parser import entry_content, entry_id, entry_published_date
+from reader.parser import entry_content, entry_id, entry_published_date, entry_published_datetime
 
 
 class TestEntryId:
@@ -86,3 +87,26 @@ class TestEntryPublishedDate:
     )
     def test_entry_published_date(self, entry, check):
         assert check(entry_published_date(entry))
+
+
+class TestEntryPublishedDatetime:
+    def test_published_parsed(self):
+        entry = {"published_parsed": struct_time((2026, 3, 15, 12, 30, 0, 6, 74, 0))}
+        result = entry_published_datetime(entry)
+        assert result == datetime(2026, 3, 15, 12, 30, 0, tzinfo=timezone.utc)
+
+    def test_updated_parsed_fallback(self):
+        entry = {"updated_parsed": struct_time((2026, 1, 10, 8, 0, 0, 4, 10, 0))}
+        result = entry_published_datetime(entry)
+        assert result == datetime(2026, 1, 10, 8, 0, 0, tzinfo=timezone.utc)
+
+    def test_published_parsed_priority(self):
+        entry = {
+            "published_parsed": struct_time((2026, 3, 15, 12, 0, 0, 6, 74, 0)),
+            "updated_parsed": struct_time((2026, 1, 10, 8, 0, 0, 4, 10, 0)),
+        }
+        result = entry_published_datetime(entry)
+        assert result == datetime(2026, 3, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+    def test_no_date_returns_none(self):
+        assert entry_published_datetime({}) is None

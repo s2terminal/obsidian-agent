@@ -28,7 +28,7 @@ class TestLoadCache:
 
     def test_existing_file(self, tmp_path):
         url = "https://example.com/feed"
-        data = {"entry-1": {"status": "done"}, "entry-2": {"status": "pending", "title": "t"}}
+        data = {"entry-1": {"title": "t", "link": "l", "content": "c"}}
         p = cache_path(url, tmp_path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data), encoding="utf-8")
@@ -43,20 +43,34 @@ class TestLoadCache:
         p.write_text(json.dumps(["id-1", "id-2"]), encoding="utf-8")
 
         result = load_cache(url, tmp_path)
-        assert result == {
-            "id-1": {"status": "done"},
-            "id-2": {"status": "done"},
+        assert result == {}
+
+    def test_migrates_old_status_format(self, tmp_path):
+        """旧形式の status 付きエントリを移行: done/skipped は除去、pending は status を除去。"""
+        url = "https://example.com/migrate"
+        data = {
+            "e1": {"status": "done"},
+            "e2": {"status": "skipped"},
+            "e3": {"status": "pending", "title": "t", "link": "l", "content": "c"},
         }
+        p = cache_path(url, tmp_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data), encoding="utf-8")
+
+        result = load_cache(url, tmp_path)
+        assert "e1" not in result
+        assert "e2" not in result
+        assert result == {"e3": {"title": "t", "link": "l", "content": "c"}}
 
 
 class TestSaveCache:
     def test_creates_directory(self, tmp_path):
         cache_dir = tmp_path / "sub" / "dir"
-        save_cache("https://example.com", {"e1": {"status": "done"}}, cache_dir)
+        save_cache("https://example.com", {"e1": {"title": "t", "link": "l", "content": "c"}}, cache_dir)
         assert cache_dir.exists()
 
     def test_roundtrip(self, tmp_path):
         url = "https://example.com/feed"
-        data = {"entry-1": {"status": "done"}, "entry-2": {"status": "pending", "title": "Test"}}
+        data = {"entry-1": {"title": "Test", "link": "l", "content": "c"}}
         save_cache(url, data, tmp_path)
         assert load_cache(url, tmp_path) == data
