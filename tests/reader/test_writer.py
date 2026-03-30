@@ -1,7 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from reader.writer import write_news
+
+JST = ZoneInfo("Asia/Tokyo")
 
 
 class TestWriteNews:
@@ -13,9 +16,10 @@ class TestWriteNews:
             "published": published, "feed_title": feed_title, "feed_link": feed_link,
         }
 
+    @patch("reader.writer.get_timezone", return_value=JST)
     @patch("reader.writer.datetime")
-    def test_creates_new_file(self, mock_dt, tmp_path):
-        mock_dt.now.return_value = datetime(2026, 3, 30, tzinfo=timezone.utc)
+    def test_creates_new_file(self, mock_dt, _mock_tz, tmp_path):
+        mock_dt.now.return_value = datetime(2026, 3, 30, tzinfo=JST)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         articles = [self._make_article()]
@@ -29,9 +33,10 @@ class TestWriteNews:
         assert "#### [Article](https://example.com)" in content
         assert "- point 1" in content
 
+    @patch("reader.writer.get_timezone", return_value=JST)
     @patch("reader.writer.datetime")
-    def test_appends_to_existing(self, mock_dt, tmp_path):
-        mock_dt.now.return_value = datetime(2026, 3, 30, tzinfo=timezone.utc)
+    def test_appends_to_existing(self, mock_dt, _mock_tz, tmp_path):
+        mock_dt.now.return_value = datetime(2026, 3, 30, tzinfo=JST)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         md_path = tmp_path / "2026" / "03-30.md"
@@ -45,9 +50,10 @@ class TestWriteNews:
         assert "Old content" in content
         assert "## 2026/03/30" in content
 
+    @patch("reader.writer.get_timezone", return_value=JST)
     @patch("reader.writer.datetime")
-    def test_groups_by_feed(self, mock_dt, tmp_path):
-        mock_dt.now.return_value = datetime(2026, 3, 30, tzinfo=timezone.utc)
+    def test_groups_by_feed(self, mock_dt, _mock_tz, tmp_path):
+        mock_dt.now.return_value = datetime(2026, 3, 30, tzinfo=JST)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         articles = [
@@ -63,3 +69,15 @@ class TestWriteNews:
         assert content.count("#### [A1]") == 1
         assert content.count("#### [A2]") == 1
         assert content.count("#### [B1]") == 1
+
+    @patch("reader.writer.get_timezone", return_value=JST)
+    @patch("reader.writer.datetime")
+    def test_uses_configured_timezone_for_filename(self, mock_dt, _mock_tz, tmp_path):
+        """JST 3/31 09:00 のときファイル名は 03-31 になる"""
+        mock_dt.now.return_value = datetime(2026, 3, 31, 9, 0, 0, tzinfo=JST)
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+
+        articles = [self._make_article()]
+        write_news(articles, feed_out_dir=tmp_path)
+
+        assert (tmp_path / "2026" / "03-31.md").exists()

@@ -1,13 +1,13 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
-from .config import get_feed_out_dir
+from .config import get_feed_out_dir, get_timezone
 
 
 def write_news(new_articles: list[dict], feed_out_dir: Path | None = None):
     out_dir = feed_out_dir or get_feed_out_dir()
-    # ファイル名はスクリプト実行日
-    today = datetime.now(timezone.utc)
+    # ファイル名はスクリプト実行日（設定タイムゾーン準拠）
+    today = datetime.now(get_timezone())
     md_path = out_dir / today.strftime("%Y") / today.strftime("%m-%d.md")
     md_path.parent.mkdir(parents=True, exist_ok=True)
 

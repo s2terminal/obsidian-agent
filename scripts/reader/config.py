@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 SCRIPT_DIR = Path(__file__).parent
 CACHE_DIR = SCRIPT_DIR / ".cache"
@@ -28,3 +29,7 @@ def get_feed_out_dir() -> Path:
 
 def get_slack_webhook_url() -> str:
     return safe_getenv("SLACK_WEBHOOK_URL")
+
+
+def get_timezone() -> ZoneInfo:
+    return ZoneInfo(os.getenv("TIMEZONE", "Asia/Tokyo"))
