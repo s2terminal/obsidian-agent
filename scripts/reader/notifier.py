@@ -2,7 +2,7 @@ import json
 import urllib.parse
 import urllib.request
 
-from reader.config import get_slack_webhook_url
+from .config import get_slack_webhook_url
 
 
 def notify_slack(message: str, webhook_url: str | None = None):

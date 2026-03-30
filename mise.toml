@@ -6,7 +6,7 @@ _.file = { path = ".env" }
 
 [tasks.run_reader]
 description = "RSSリーダーを実行"
-run = "uv run ./scripts/reader/main.py"
+run = "cd scripts && uv run python -m reader.main"
 
 [tasks.test]
 description = "テストを実行"

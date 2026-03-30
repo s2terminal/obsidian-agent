@@ -13,13 +13,13 @@ from datetime import datetime, timezone
 import feedparser
 from google.adk.runners import InMemoryRunner
 
-from reader.cache import load_cache, save_cache
-from reader.config import APP_NAME, MAX_ARTICLES
-from reader.feed import load_feeds, save_feeds
-from reader.notifier import notify_slack
-from reader.parser import entry_content, entry_id, entry_published_date
-from reader.summarizer import summarize, summarizer_agent
-from reader.writer import write_news
+from .cache import load_cache, save_cache
+from .config import APP_NAME, MAX_ARTICLES
+from .feed import load_feeds, save_feeds
+from .notifier import notify_slack
+from .parser import entry_content, entry_id, entry_published_date
+from .summarizer import summarize, summarizer_agent
+from .writer import write_news
 
 
 async def process_feed(
