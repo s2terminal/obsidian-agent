@@ -22,8 +22,7 @@ def write_news(new_articles: list[dict], feed_out_dir: Path | None = None):
 
     lines: list[str] = []
     for date_str in sorted(by_date.keys(), reverse=True):
-        if f"## {date_str}" not in existing:
-            lines.append(f"## {date_str}\n")
+        lines.append(f"## {date_str}\n")
         for (feed_title, feed_link), articles in by_date[date_str].items():
             lines.append(f"### [{feed_title}]({feed_link})\n")
             for a in articles:
