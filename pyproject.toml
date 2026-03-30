@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "obsidian-agent"
 version = "0.1.0"
@@ -17,6 +21,8 @@ dev = [
     "pytest-asyncio>=0.26",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["scripts/reader"]
+
 [tool.pytest.ini_options]
-pythonpath = ["scripts"]
 asyncio_mode = "auto"
