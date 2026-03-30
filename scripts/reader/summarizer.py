@@ -2,7 +2,7 @@ from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
-from reader.config import APP_NAME, DEFAULT_MODEL, USER_ID
+from .config import APP_NAME, DEFAULT_MODEL, USER_ID
 
 summarizer_agent = Agent(
     name="summarizer",

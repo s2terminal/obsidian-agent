@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from reader.config import get_feed_yaml
+from .config import get_feed_yaml
 
 
 def load_feeds(feed_yaml: Path | None = None) -> dict:

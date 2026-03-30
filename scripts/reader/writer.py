@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from reader.config import get_feed_out_dir
+from .config import get_feed_out_dir
 
 
 def write_news(new_articles: list[dict], feed_out_dir: Path | None = None):
