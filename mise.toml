@@ -1,0 +1,9 @@
+[tools]
+uv = "latest"
+
+[env]
+_.file = { path = ".env" }
+
+[tasks.run_reader]
+description = "RSSリーダーを実行"
+run = "uv run ./scripts/reader/main.py"

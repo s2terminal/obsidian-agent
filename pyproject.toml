@@ -1,0 +1,12 @@
+[project]
+name = "obsidian-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "feedparser>=6.0.12",
+    "google-cloud-aiplatform[adk,agent-engines]>=1.112",
+    "google-genai>=1.68.0",
+    "pyyaml>=6.0",
+]
