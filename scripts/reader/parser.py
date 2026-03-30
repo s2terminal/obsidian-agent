@@ -34,6 +34,21 @@ def entry_content(entry) -> str:
     return entry.get("summary", entry.get("description", ""))
 
 
+def entry_published_datetime(entry) -> datetime | None:
+    """記事の投稿日時を datetime オブジェクトで返す。
+
+    published_parsed > updated_parsed の順で参照し、
+    いずれも無い場合は None を返す。
+    feedparser の parsed 値は UTC の struct_time であるため、
+    そのまま UTC の datetime に変換する。
+    """
+    for key in ("published_parsed", "updated_parsed"):
+        t = entry.get(key)
+        if isinstance(t, struct_time):
+            return datetime(*t[:6], tzinfo=timezone.utc)
+    return None
+
+
 def entry_published_date(entry) -> str:
     """記事の投稿日を YYYY/MM/DD 形式の文字列で返す。
 

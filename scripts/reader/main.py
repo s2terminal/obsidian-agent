@@ -17,7 +17,7 @@ from .cache import load_cache, save_cache
 from .config import APP_NAME, MAX_ARTICLES
 from .feed import load_feeds, save_feeds
 from .notifier import notify_slack
-from .parser import entry_content, entry_id, entry_published_date
+from .parser import entry_content, entry_id, entry_published_date, entry_published_datetime
 from .summarizer import summarize, summarizer_agent
 from .writer import write_news
 
@@ -38,6 +38,11 @@ async def process_feed(
     summarized_ids: list[str] = []
     max_articles = feed_info.get("max_articles", MAX_ARTICLES)
 
+    # last_fetched を解析して、それより新しい記事のみ処理する
+    last_fetched = None
+    if feed_info.get("last_fetched"):
+        last_fetched = datetime.fromisoformat(str(feed_info["last_fetched"]))
+
     for entry in feed.entries:
         eid = entry_id(entry)
         cached_entry = cache.get(eid)
@@ -45,6 +50,12 @@ async def process_feed(
         # 要約済み・スキップ済みならスキップ
         if cached_entry and cached_entry.get("status") in ("done", "skipped"):
             continue
+
+        # pending でない新規記事は last_fetched より古ければスキップ
+        if not cached_entry and last_fetched:
+            pub_dt = entry_published_datetime(entry)
+            if pub_dt and pub_dt <= last_fetched:
+                continue
 
         # 上限に達したら、残りの未処理記事をスキップ済みとしてマーク
         if len(summarized_ids) >= max_articles:

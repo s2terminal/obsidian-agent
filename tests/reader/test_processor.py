@@ -171,3 +171,102 @@ class TestProcessFeed:
         result = await process_feed(runner, {"url": "https://example.com/broken"})
 
         assert result == []
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
+    async def test_skips_old_articles_by_last_fetched(self, mock_parse, mock_summarize):
+        """last_fetched より古い記事はスキップされる。"""
+        from time import struct_time
+
+        old_entry = self._make_entry("e1", "Old Article")
+        old_entry["published_parsed"] = struct_time((2026, 3, 1, 0, 0, 0, 0, 0, 0))
+
+        new_entry = self._make_entry("e2", "New Article")
+        new_entry["published_parsed"] = struct_time((2026, 3, 20, 0, 0, 0, 0, 0, 0))
+
+        mock_parse.return_value = self._make_feed_result([old_entry, new_entry])
+        mock_summarize.return_value = "- 要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        result = await process_feed(runner, {
+            "url": "https://example.com/feed",
+            "last_fetched": "2026-03-10T00:00:00+00:00",
+        })
+
+        assert len(result) == 1
+        assert result[0]["title"] == "New Article"
+        assert mock_summarize.call_count == 1
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
+    async def test_no_last_fetched_processes_all(self, mock_parse, mock_summarize):
+        """last_fetched が設定されていない場合は全記事を処理する。"""
+        from time import struct_time
+
+        entry = self._make_entry("e1", "Article")
+        entry["published_parsed"] = struct_time((2020, 1, 1, 0, 0, 0, 0, 0, 0))
+
+        mock_parse.return_value = self._make_feed_result([entry])
+        mock_summarize.return_value = "- 要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        result = await process_feed(runner, {"url": "https://example.com/feed"})
+
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
+    async def test_pending_retried_even_if_older_than_last_fetched(self, mock_parse, mock_summarize):
+        """pending 記事は last_fetched より古くてもリトライされる。"""
+        from reader.cache import save_cache
+        save_cache("https://example.com/feed", {
+            "e1": {
+                "status": "pending",
+                "title": "Old Pending",
+                "link": "https://example.com/old",
+                "content": "Old content",
+                "published": "2026/01/01",
+            }
+        }, self.cache_dir)
+
+        from time import struct_time
+        entry = self._make_entry("e1")
+        entry["published_parsed"] = struct_time((2026, 1, 1, 0, 0, 0, 0, 0, 0))
+
+        mock_parse.return_value = self._make_feed_result([entry])
+        mock_summarize.return_value = "- リトライ要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        result = await process_feed(runner, {
+            "url": "https://example.com/feed",
+            "last_fetched": "2026-03-01T00:00:00+00:00",
+        })
+
+        assert len(result) == 1
+        assert result[0]["title"] == "Old Pending"
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
+    async def test_articles_without_date_not_skipped(self, mock_parse, mock_summarize):
+        """投稿日が無い記事は last_fetched があってもスキップされない。"""
+        entry = self._make_entry("e1", "No Date Article")
+        # published_parsed も updated_parsed も無い
+
+        mock_parse.return_value = self._make_feed_result([entry])
+        mock_summarize.return_value = "- 要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        result = await process_feed(runner, {
+            "url": "https://example.com/feed",
+            "last_fetched": "2026-03-01T00:00:00+00:00",
+        })
+
+        assert len(result) == 1
