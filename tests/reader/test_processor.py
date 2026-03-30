@@ -60,50 +60,10 @@ class TestProcessFeed:
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
     @patch("reader.main.feedparser.parse")
-    async def test_skips_done(self, mock_parse, mock_summarize, tmp_path):
-        # Pre-populate cache with done entry
-        from reader.cache import save_cache
-        save_cache("https://example.com/feed", {"e1": {"status": "done"}}, self.cache_dir)
-
-        mock_parse.return_value = self._make_feed_result([
-            self._make_entry("e1", "Already Done"),
-            self._make_entry("e2", "New Article"),
-        ])
-        mock_summarize.return_value = "- 新しい要約"
-
-        from reader.main import process_feed
-        runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed"})
-
-        assert len(result) == 1
-        assert result[0]["title"] == "New Article"
-
-    @pytest.mark.asyncio
-    @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
-    async def test_skips_skipped(self, mock_parse, mock_summarize):
-        from reader.cache import save_cache
-        save_cache("https://example.com/feed", {"e1": {"status": "skipped"}}, self.cache_dir)
-
-        mock_parse.return_value = self._make_feed_result([
-            self._make_entry("e1", "Skipped Article"),
-        ])
-
-        from reader.main import process_feed
-        runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed"})
-
-        assert len(result) == 0
-        mock_summarize.assert_not_called()
-
-    @pytest.mark.asyncio
-    @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
     async def test_retries_pending(self, mock_parse, mock_summarize):
         from reader.cache import save_cache
         save_cache("https://example.com/feed", {
             "e1": {
-                "status": "pending",
                 "title": "Pending Title",
                 "link": "https://example.com/pending",
                 "content": "Pending content",
@@ -154,11 +114,11 @@ class TestProcessFeed:
 
         assert len(result) == 0
 
-        # Check that the cache was saved with pending status
+        # キャッシュにリトライ対象のデータが保存されていることを確認
         from reader.cache import load_cache
         cache = load_cache("https://example.com/feed", self.cache_dir)
-        assert cache["e1"]["status"] == "pending"
         assert cache["e1"]["title"] == "Fail Article"
+        assert "status" not in cache["e1"]
 
     @pytest.mark.asyncio
     @patch("reader.main.feedparser.parse")
@@ -222,11 +182,10 @@ class TestProcessFeed:
     @patch("reader.main.summarize", new_callable=AsyncMock)
     @patch("reader.main.feedparser.parse")
     async def test_pending_retried_even_if_older_than_last_fetched(self, mock_parse, mock_summarize):
-        """pending 記事は last_fetched より古くてもリトライされる。"""
+        """キャッシュに存在する記事は last_fetched より古くてもリトライされる。"""
         from reader.cache import save_cache
         save_cache("https://example.com/feed", {
             "e1": {
-                "status": "pending",
                 "title": "Old Pending",
                 "link": "https://example.com/old",
                 "content": "Old content",

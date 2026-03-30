@@ -45,24 +45,18 @@ async def process_feed(
         eid = entry_id(entry)
         cached_entry = cache.get(eid)
 
-        # 要約済み・スキップ済みならスキップ
-        if cached_entry and cached_entry.get("status") in ("done", "skipped"):
-            continue
-
-        # pending でない新規記事は last_fetched より古ければスキップ
+        # 新規記事は last_fetched より古ければスキップ
         if not cached_entry and last_fetched:
             pub_dt = entry_published_datetime(entry)
             if pub_dt and pub_dt <= last_fetched:
                 continue
 
-        # 上限に達したら、残りの未処理記事をスキップ済みとしてマーク
+        # 上限に達したら、残りの未処理記事をスキップ
         if len(summarized_ids) >= max_articles:
-            if not cached_entry:
-                cache[eid] = {"status": "skipped"}
             continue
 
-        # pending(fetch済み・要約未完了)ならキャッシュからコンテンツを復元
-        if cached_entry and cached_entry.get("status") == "pending":
+        # キャッシュにある → リトライ対象（コンテンツをキャッシュから復元）
+        if cached_entry:
             title = cached_entry["title"]
             link = cached_entry["link"]
             content = cached_entry["content"]
@@ -78,16 +72,15 @@ async def process_feed(
             summary = await summarize(runner, str(title), content)
         except Exception as e:
             print(f"  要約失敗 タイトル: {title} エラー: {e}")
-            # fetch済み・要約失敗 → pendingとしてキャッシュ
+            # fetch済み・要約失敗 → キャッシュに保存してリトライ対象にする
             cache[eid] = {
                 "title": title, "link": link,
                 "content": content, "published": published,
-                "status": "pending",
             }
             continue
 
-        # 要約成功 → doneとしてキャッシュ
-        cache[eid] = {"status": "done"}
+        # 要約成功 → キャッシュから削除
+        cache.pop(eid, None)
 
         feed_title = getattr(feed.feed, "title", url) or url
         feed_link = getattr(feed.feed, "link", url) or url
