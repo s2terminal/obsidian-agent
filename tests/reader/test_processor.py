@@ -162,14 +162,17 @@ class TestProcessFeed:
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
     @patch("reader.main.feedparser.parse")
-    async def test_no_last_fetched_processes_all(self, mock_parse, mock_summarize):
-        """last_fetched が設定されていない場合は全記事を処理する。"""
+    async def test_no_last_fetched_limits_to_one(self, mock_parse, mock_summarize):
+        """last_fetched が設定されていない（新規追加）場合は最新1件のみ処理する。"""
         from time import struct_time
 
-        entry = self._make_entry("e1", "Article")
-        entry["published_parsed"] = struct_time((2020, 1, 1, 0, 0, 0, 0, 0, 0))
+        # フィードは最新順（フィードの先頭が最新）でエントリを返す想定
+        entries = [self._make_entry(f"e{i}", f"Article {i}") for i in range(5)]
+        for i, entry in enumerate(entries):
+            # entries[0] が最新 (Jan 5)、entries[4] が最古 (Jan 1) の降順
+            entry["published_parsed"] = struct_time((2020, 1, 5 - i, 0, 0, 0, 0, 0, 0))
 
-        mock_parse.return_value = self._make_feed_result([entry])
+        mock_parse.return_value = self._make_feed_result(entries)
         mock_summarize.return_value = "- 要約"
 
         from reader.main import process_feed
@@ -177,6 +180,9 @@ class TestProcessFeed:
         result = await process_feed(runner, {"url": "https://example.com/feed"})
 
         assert len(result) == 1
+        assert mock_summarize.call_count == 1
+        # フィード先頭（最新）の記事が処理されること
+        assert result[0]["title"] == "Article 0"
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)

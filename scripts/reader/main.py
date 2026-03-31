@@ -14,7 +14,7 @@ import feedparser
 from google.adk.runners import InMemoryRunner
 
 from .cache import load_cache, save_cache
-from .config import APP_NAME, MAX_ARTICLES
+from .config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW
 from .feed import load_feeds, parse_last_fetched, save_feeds
 from .notifier import notify_slack
 from .parser import entry_content, entry_id, entry_published_date, entry_published_datetime
@@ -36,10 +36,13 @@ async def process_feed(
     cache = load_cache(url)
     articles: list[dict] = []
     summarized_ids: list[str] = []
-    max_articles = feed_info.get("max_articles", MAX_ARTICLES)
 
     # last_fetched を解析して、それより新しい記事のみ処理する
     last_fetched = parse_last_fetched(feed_info)
+
+    # last_fetched が未設定（新規追加）の場合は最新1件のみ処理する
+    default_max = MAX_ARTICLES_NEW if last_fetched is None else MAX_ARTICLES
+    max_articles = feed_info.get("max_articles", default_max)
 
     for entry in feed.entries:
         eid = entry_id(entry)
