@@ -73,10 +73,22 @@ class TestWriteNews:
     @patch("reader.writer.get_timezone", return_value=JST)
     @patch("reader.writer.datetime")
     def test_uses_configured_timezone_for_filename(self, mock_dt, _mock_tz, tmp_path):
-        """JST 3/31 09:00 のときファイル名は 03-31 になる"""
-        mock_dt.now.return_value = datetime(2026, 3, 31, 9, 0, 0, tzinfo=JST)
+        """JST 3/31 01:00（UTC 3/30 16:00）のときファイル名は 03-31 になる"""
+
+        # datetime(...) コンストラクタ呼び出しは本物を使う
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
+        # datetime.now(tz=...) の tz に応じて返す値を変える
+        def now_side_effect(tz=None):
+            # システム時刻（UTC）としては 2026-03-30 16:00:00+00:00
+            if tz is None:
+                return datetime(2026, 3, 30, 16, 0, 0, tzinfo=ZoneInfo("UTC"))
+            # write_news 側が JST を使っていることをアサートする
+            assert tz == JST
+            # JST としては 2026-03-31 01:00:00+09:00
+            return datetime(2026, 3, 31, 1, 0, 0, tzinfo=JST)
+
+        mock_dt.now.side_effect = now_side_effect
         articles = [self._make_article()]
         write_news(articles, feed_out_dir=tmp_path)
 
