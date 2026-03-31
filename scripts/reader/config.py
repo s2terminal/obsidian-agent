@@ -32,4 +32,4 @@ def get_slack_webhook_url() -> str:
 
 
 def get_timezone() -> ZoneInfo:
-    return ZoneInfo(os.getenv("TIMEZONE", "Asia/Tokyo"))
+    return ZoneInfo(safe_getenv("TIMEZONE"))
