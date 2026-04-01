@@ -50,7 +50,10 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed"})
+        result = await process_feed(runner, {
+            "url": "https://example.com/feed",
+            "last_fetched": "2026-01-01T00:00:00+00:00",
+        })
 
         assert len(result) == 2
         assert result[0]["title"] == "Article 1"
