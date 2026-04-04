@@ -12,6 +12,7 @@ DEFAULT_MODEL = "gemini-3-flash-preview"
 APP_NAME = "rss_reader"
 USER_ID = "default_user"
 MAX_ARTICLES = 5  # フィードごとに要約する最大記事数
+MAX_ARTICLES_NEW = 1  # last_fetched 未設定（新規追加）フィードに適用する最大記事数
 
 def safe_getenv(key: str) -> str:
     value = os.getenv(key)
