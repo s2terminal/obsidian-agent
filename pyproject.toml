@@ -8,6 +8,7 @@ dependencies = [
     "feedparser>=6.0.12",
     "google-cloud-aiplatform[adk,agent-engines]>=1.112",
     "google-genai>=1.68.0",
+    "langfuse>=4.0.6",
     "pyyaml>=6.0",
 ]
 
