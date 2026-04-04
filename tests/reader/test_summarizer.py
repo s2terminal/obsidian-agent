@@ -22,12 +22,14 @@ class MockLlm(BaseLlm):
 
     @classmethod
     def supported_models(cls) -> list[str]:
-        return ["mock-.*"]
+        # モデルインスタンスを Agent に直接渡すため、このメソッドは使用されない
+        return ["mock-model"]
 
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
         self.received_requests.append(llm_request)
+        # responses の各要素がストリーミングの1チャンクに対応する
         for text in self.responses:
             yield LlmResponse(
                 content=types.Content(role="model", parts=[types.Part(text=text)])
@@ -79,7 +81,9 @@ class TestSummarize:
         await summarize(runner, "My Title", "My content body")
 
         assert len(llm.received_requests) == 1
-        request_text = llm.received_requests[0].contents[0].parts[0].text
+        request = llm.received_requests[0]
+        user_content = request.contents[0]
+        request_text = user_content.parts[0].text
         assert "My Title" in request_text
         assert "My content body" in request_text
 
@@ -90,6 +94,8 @@ class TestSummarize:
 
         await summarize(runner, "Title", long_content)
 
-        request_text = llm.received_requests[0].contents[0].parts[0].text
+        request = llm.received_requests[0]
+        user_content = request.contents[0]
+        request_text = user_content.parts[0].text
         assert "x" * 8000 in request_text
         assert "x" * 8001 not in request_text
