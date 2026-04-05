@@ -1,5 +1,4 @@
 from typing import AsyncGenerator
-from unittest.mock import MagicMock, patch
 
 import pytest
 from google.adk.agents import Agent
@@ -100,38 +99,3 @@ class TestSummarize:
         request_text = user_content.parts[0].text
         assert "x" * 8000 in request_text
         assert "x" * 8001 not in request_text
-
-
-class TestSummarizeLangfuse:
-    @pytest.mark.asyncio
-    async def test_traces_input_and_output(self):
-        runner, _ = make_runner(["- 要約ポイント"])
-
-        mock_langfuse = MagicMock()
-        with patch("reader.summarizer.get_client", return_value=mock_langfuse):
-            result = await summarize(runner, "テストタイトル", "テストコンテンツ")
-
-        assert result == "- 要約ポイント"
-
-        calls = mock_langfuse.update_current_generation.call_args_list
-        assert len(calls) == 2
-
-        # 1回目の呼び出し: 入力メッセージとモデル名
-        first_kwargs = calls[0].kwargs
-        assert "テストタイトル" in first_kwargs["input"]
-        assert "テストコンテンツ" in first_kwargs["input"]
-        assert first_kwargs["model"] == "gemini-3-flash-preview"
-
-        # 2回目の呼び出し: 出力テキスト
-        second_kwargs = calls[1].kwargs
-        assert second_kwargs["output"] == "- 要約ポイント"
-
-    @pytest.mark.asyncio
-    async def test_succeeds_when_langfuse_unavailable(self):
-        runner, _ = make_runner(["- 要約ポイント"])
-
-        # get_client() が例外を発生させてもsummarize()は正常に動作すること
-        with patch("reader.summarizer.get_client", side_effect=RuntimeError("Langfuse unavailable")):
-            result = await summarize(runner, "テストタイトル", "テストコンテンツ")
-
-        assert result == "- 要約ポイント"

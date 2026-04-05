@@ -31,8 +31,8 @@ async def summarize(runner: InMemoryRunner, title: str, content: str) -> str:
             input=message,
             model=DEFAULT_MODEL,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Langfuse入力トレーシング失敗: {e}")
     session = await runner.session_service.create_session(
         app_name=APP_NAME, user_id=USER_ID
     )
@@ -51,6 +51,6 @@ async def summarize(runner: InMemoryRunner, title: str, content: str) -> str:
     result = "".join(responses).strip()
     try:
         get_client().update_current_generation(output=result)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Langfuse出力トレーシング失敗: {e}")
     return result
