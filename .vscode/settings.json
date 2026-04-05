@@ -1,6 +1,6 @@
 {
   "chat.tools.terminal.autoApprove": {
-    "/^cd /workspaces/obsidian-agent && mise run test$/": {
+    "/^cd \\/workspaces\\/obsidian-agent && mise run test$/": {
       "approve": true,
       "matchCommandLine": true
     }
