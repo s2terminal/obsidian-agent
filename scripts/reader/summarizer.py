@@ -1,6 +1,7 @@
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
+from langfuse import get_client, observe
 
 from .config import APP_NAME, DEFAULT_MODEL, USER_ID
 
@@ -18,12 +19,20 @@ summarizer_agent = Agent(
 )
 
 
+@observe(as_type="generation", capture_input=False, capture_output=False)
 async def summarize(runner: InMemoryRunner, title: str, content: str) -> str:
     message = (
         f"以下の記事を日本語で要約してください。\n\n"
         f"タイトル: {title}\n\n"
         f"内容:\n{content[:8000]}"
     )
+    try:
+        get_client().update_current_generation(
+            input=message,
+            model=DEFAULT_MODEL,
+        )
+    except Exception as e:
+        print(f"Langfuse入力トレーシング失敗: {e}")
     session = await runner.session_service.create_session(
         app_name=APP_NAME, user_id=USER_ID
     )
@@ -39,4 +48,9 @@ async def summarize(runner: InMemoryRunner, title: str, content: str) -> str:
             for part in event.content.parts:
                 if part.text:
                     responses.append(part.text)
-    return "".join(responses).strip()
+    result = "".join(responses).strip()
+    try:
+        get_client().update_current_generation(output=result)
+    except Exception as e:
+        print(f"Langfuse出力トレーシング失敗: {e}")
+    return result
