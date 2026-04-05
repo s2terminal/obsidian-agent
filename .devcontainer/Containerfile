@@ -1,0 +1,6 @@
+FROM mcr.microsoft.com/devcontainers/base:trixie
+
+# Install mise
+ENV PATH="/mise/shims:$PATH"
+ENV MISE_INSTALL_PATH="/usr/local/bin/mise"
+RUN curl https://mise.run | sh
