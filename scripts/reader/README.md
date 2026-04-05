@@ -5,7 +5,8 @@ RSSフィードから最新記事を取得し、Google ADK (Gemini) で日本語
 ## 実行方法
 
 ```bash
-mise x -- uv run ./scripts/reader/main.py
+mise x -- uv run -m scripts.reader.main
+mise x -- uv run -m scripts.reader.main --summarize-only
 ```
 
 ### 前提条件
@@ -46,8 +47,16 @@ ai-generated/feed/
 | フィールド | 説明 |
 |---|---|
 | `url` | RSSフィードのURL |
-| `last_fetched` | 最終取得時刻（ISO 8601）。スクリプトが自動更新する |
+| `last_fetched` | 最終取得時刻（ISO 8601）。通常実行時のみスクリプトが自動更新する |
 | `max_articles` | フィードごとの最大要約件数（省略時: 5） |
+
+## 要約のみモード（--summarize-only）
+
+`--summarize-only` を付けると、要約を生成して標準出力へ流します。
+
+- 要約ファイルは保存しない
+- `feed.yaml` の `last_fetched` は更新しない
+- Slack通知は送らない
 
 ## 処理フロー
 

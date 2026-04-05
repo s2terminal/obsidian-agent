@@ -2,7 +2,7 @@ from datetime import datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from reader.writer import write_news
+from reader.writer import render_news, write_news
 
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -15,6 +15,18 @@ class TestWriteNews:
             "title": title, "link": link, "summary": summary,
             "published": published, "feed_title": feed_title, "feed_link": feed_link,
         }
+
+    def test_render_news_returns_markdown(self):
+        articles = [self._make_article()]
+
+        content = render_news(articles)
+
+        assert content == (
+            "## 2026/03/30\n\n"
+            "### [Feed](https://feed.example.com)\n\n"
+            "#### [Article](https://example.com)\n\n"
+            "- point 1\n"
+        )
 
     @patch("reader.writer.get_timezone", return_value=JST)
     @patch("reader.writer.datetime")

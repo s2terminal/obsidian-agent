@@ -1,12 +1,14 @@
 """
 RSS Reader & Summarizer
 
-フィードから最新記事を取得し、Google ADK (Gemini) で要約してnews.mdに出力する。
+フィードから最新記事を取得し、Google ADK (Gemini) で要約して出力する。
 
 usage:
     mise x -- uv run ./scripts/reader/main.py
+    mise x -- uv run ./scripts/reader/main.py --summarize-only
 """
 
+import argparse
 import asyncio
 from datetime import datetime, timezone
 
@@ -19,7 +21,18 @@ from .feed import load_feeds, parse_last_fetched, save_feeds
 from .notifier import notify_slack
 from .parser import entry_content, entry_id, entry_published_date, entry_published_datetime
 from .summarizer import summarize, summarizer_agent
-from .writer import write_news
+from .writer import render_news, write_news
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="RSSフィードの記事を要約します")
+    parser.add_argument(
+        "--summarize-only",
+        dest="summarize_only",
+        action="store_true",
+        help="要約を生成して標準出力に流します。last_fetched と要約ファイルは更新しません",
+    )
+    return parser
 
 
 async def process_feed(
@@ -99,7 +112,7 @@ async def process_feed(
     return articles
 
 
-async def main():
+async def main(*, summarize_only: bool = False):
     feeds_data = load_feeds()
     runner = InMemoryRunner(agent=summarizer_agent, app_name=APP_NAME)
 
@@ -112,6 +125,11 @@ async def main():
         all_articles.extend(articles)
 
     if all_articles:
+        if summarize_only:
+            print(render_news(all_articles), end="")
+            print("\n要約のみモード: last_fetched は更新せず、要約ファイルも保存しません")
+            return
+
         write_news(all_articles)
 
         # フィードのlast_fetchedを更新して保存
@@ -125,8 +143,10 @@ async def main():
         notify_slack(f":newspaper: RSS Reader 完了: {msg}")
     else:
         print("\n新規記事はありません")
-        notify_slack(":newspaper: RSS Reader 完了: 新規記事はありません")
+        if not summarize_only:
+            notify_slack(":newspaper: RSS Reader 完了: 新規記事はありません")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    args = build_parser().parse_args()
+    asyncio.run(main(summarize_only=args.summarize_only))
