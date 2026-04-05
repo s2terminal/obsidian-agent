@@ -1,4 +1,8 @@
+import os
 from time import struct_time
+
+# Langfuse シングルトンが初期化される前に設定する必要があるため、モジュールレベルで無効化する
+os.environ["LANGFUSE_TRACING_ENABLED"] = "false"
 
 import pytest
 
