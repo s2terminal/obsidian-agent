@@ -4,8 +4,8 @@ RSS Reader & Summarizer
 フィードから最新記事を取得し、Google ADK (Gemini) で要約して出力する。
 
 usage:
-    mise x -- uv run ./scripts/reader/main.py
-    mise x -- uv run ./scripts/reader/main.py --summarize-only
+    mise x -- uv run -m scripts.reader.main
+    mise x -- uv run -m scripts.reader.main --summarize-only
 """
 
 import argparse
