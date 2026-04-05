@@ -13,3 +13,5 @@ wheels/
 scripts/reader/.cache/
 
 .env
+
+sample/vault/**/*

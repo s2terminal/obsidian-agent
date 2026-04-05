@@ -5,7 +5,8 @@ RSSフィードから最新記事を取得し、Google ADK (Gemini) で日本語
 ## 実行方法
 
 ```bash
-mise x -- uv run ./scripts/reader/main.py
+mise x -- uv run -m scripts.reader.main
+mise x -- uv run -m scripts.reader.main --summarize-only
 ```
 
 ### 前提条件
@@ -30,32 +31,40 @@ ai-generated/feed/
     └── {mm-dd}.md   # スクリプト実行日ごとのファイル
 ```
 
-## feed.json
+## feed.yaml
 
-購読するRSSフィードを管理するJSONファイル。
+購読するRSSフィードを管理するYAMLファイル。
 
-```json
-{
-  "feeds": [
-    { "url": "https://example.com/feed.xml", "last_fetched": null },
-    { "url": "https://example.com/rss", "max_articles": 10, "last_fetched": null }
-  ]
-}
+```yaml
+feeds:
+- url: https://example.com/feed.xml
+  last_fetched: null
+- url: https://example.com/rss
+  max_articles: 10
+  last_fetched: null
 ```
 
 | フィールド | 説明 |
 |---|---|
 | `url` | RSSフィードのURL |
-| `last_fetched` | 最終取得時刻（ISO 8601）。スクリプトが自動更新する |
+| `last_fetched` | 最終取得時刻（ISO 8601）。通常実行時のみスクリプトが自動更新する |
 | `max_articles` | フィードごとの最大要約件数（省略時: 5） |
+
+## 要約のみモード（--summarize-only）
+
+`--summarize-only` を付けると、要約を生成して標準出力へ流します。
+
+- 要約ファイルは保存しない
+- `feed.yaml` の `last_fetched` は更新しない
+- Slack通知は送らない
 
 ## 処理フロー
 
-1. `feed.json` に記載のあるフィードを取得
+1. `feed.yaml` に記載のあるフィードを取得
 2. キャッシュと照合し、未処理の記事を特定
 3. Google ADK (Gemini) で記事を日本語の箇条書きに要約
 4. `ai-generated/feed/yyyy/mm-dd.md` に結果を書き出し
-5. 書き出し成功後に `feed.json` の `last_fetched` を更新
+5. 書き出し成功後に `feed.yaml` の `last_fetched` を更新
 
 ## キャッシュの仕組み
 
