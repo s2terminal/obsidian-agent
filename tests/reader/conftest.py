@@ -1,10 +1,16 @@
 import os
 from time import struct_time
 
-# Langfuse シングルトンが初期化される前に設定する必要があるため、未設定時のみモジュールレベルで無効化する
-os.environ.setdefault("LANGFUSE_TRACING_ENABLED", "false")
-
 import pytest
+
+
+def pytest_configure(config):
+    # llm_eval マーカーを明示的に指定した場合はLangfuseを有効にする
+    # それ以外（通常のテスト実行）ではLangfuseを無効化する
+    # ※ Langfuse シングルトンが初期化される前に設定する必要があるため、フック内で設定する
+    markexpr = getattr(config.option, "markexpr", "").strip()
+    if markexpr != "llm_eval":
+        os.environ.setdefault("LANGFUSE_TRACING_ENABLED", "false")
 
 
 @pytest.fixture

@@ -15,3 +15,4 @@ scripts/reader/.cache/
 .env
 
 sample/vault/**/*
+scripts/reader/.adk/eval_history/

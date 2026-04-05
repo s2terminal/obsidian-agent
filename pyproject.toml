@@ -14,10 +14,17 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "google-adk[eval]>=1.28.0",
+    "pandas>=3.0.2",
     "pytest>=8.0",
     "pytest-asyncio>=0.26",
+    "rouge-score>=0.1.2",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["scripts"]
 asyncio_mode = "auto"
+addopts = "-m 'not llm_eval'"
+markers = [
+    "llm_eval: LLMを実際に呼び出す評価テスト（明示的に -m llm_eval で実行）",
+]
