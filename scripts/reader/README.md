@@ -31,17 +31,17 @@ ai-generated/feed/
     └── {mm-dd}.md   # スクリプト実行日ごとのファイル
 ```
 
-## feed.json
+## feed.yaml
 
-購読するRSSフィードを管理するJSONファイル。
+購読するRSSフィードを管理するYAMLファイル。
 
-```json
-{
-  "feeds": [
-    { "url": "https://example.com/feed.xml", "last_fetched": null },
-    { "url": "https://example.com/rss", "max_articles": 10, "last_fetched": null }
-  ]
-}
+```yaml
+feeds:
+- url: https://example.com/feed.xml
+  last_fetched: null
+- url: https://example.com/rss
+  max_articles: 10
+  last_fetched: null
 ```
 
 | フィールド | 説明 |
@@ -60,11 +60,11 @@ ai-generated/feed/
 
 ## 処理フロー
 
-1. `feed.json` に記載のあるフィードを取得
+1. `feed.yaml` に記載のあるフィードを取得
 2. キャッシュと照合し、未処理の記事を特定
 3. Google ADK (Gemini) で記事を日本語の箇条書きに要約
 4. `ai-generated/feed/yyyy/mm-dd.md` に結果を書き出し
-5. 書き出し成功後に `feed.json` の `last_fetched` を更新
+5. 書き出し成功後に `feed.yaml` の `last_fetched` を更新
 
 ## キャッシュの仕組み
 
