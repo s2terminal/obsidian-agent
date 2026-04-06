@@ -13,6 +13,7 @@ def _should_enable_langfuse(markexpr: str) -> bool:
 
     注: 内部APIを使わない簡易実装のため、複雑な論理式の正確な評価は行わない。
     典型的なユースケース（'llm_eval'、'llm_eval and X'、'not llm_eval'）に対応する。
+    'llm_eval or (not llm_eval and other)' のような複雑な式は正しく評価されない。
     """
     markexpr = (markexpr or "").strip()
     if not markexpr:
