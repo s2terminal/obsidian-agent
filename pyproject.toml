@@ -25,6 +25,10 @@ dev = [
 pythonpath = ["scripts"]
 asyncio_mode = "auto"
 addopts = "-m 'not llm_eval'"
+# Python 3.14 + google-genai の既知警告（上流対応待ち）をピンポイントで抑制
+filterwarnings = [
+    "ignore:'_UnionGenericAlias' is deprecated and slated for removal in Python 3\\.17:DeprecationWarning:google\\.genai\\.types",
+]
 markers = [
     "llm_eval: LLMを実際に呼び出す評価テスト（明示的に -m llm_eval で実行）",
 ]

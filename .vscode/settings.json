@@ -3,6 +3,10 @@
     "/^cd \\/workspaces\\/obsidian-agent && mise run test$/": {
       "approve": true,
       "matchCommandLine": true
+    },
+    "/^mise run test$/": {
+      "approve": true,
+      "matchCommandLine": true
     }
   }
 }
