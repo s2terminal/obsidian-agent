@@ -1,42 +1,27 @@
-import itertools
 import os
 import re
 from time import struct_time
 
 import pytest
-from _pytest.mark.expression import Expression
 
-_IDENTIFIER_PATTERN = re.compile(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b")
-_RESERVED_WORDS = {"and", "or", "not", "True", "False", "None"}
-
-
-def _extract_marker_names(markexpr: str) -> set[str]:
-    return {
-        token
-        for token in _IDENTIFIER_PATTERN.findall(markexpr)
-        if token not in _RESERVED_WORDS
-    }
+_LLM_EVAL_WORD_PATTERN = re.compile(r"\bllm_eval\b")
+_LLM_EVAL_NEGATED_PATTERN = re.compile(r"\bnot\s+llm_eval\b")
 
 
 def _should_enable_langfuse(markexpr: str) -> bool:
+    """markexpr に llm_eval が（否定なしで）含まれるかを判定する。
+
+    注: 内部APIを使わない簡易実装のため、複雑な論理式の正確な評価は行わない。
+    典型的なユースケース（'llm_eval'、'llm_eval and X'、'not llm_eval'）に対応する。
+    """
     markexpr = (markexpr or "").strip()
     if not markexpr:
         return False
-
-    marker_names = sorted(_extract_marker_names(markexpr))
-    if "llm_eval" not in marker_names:
+    if not _LLM_EVAL_WORD_PATTERN.search(markexpr):
         return False
-
-    expression = Expression.compile(markexpr)
-    other_markers = [name for name in marker_names if name != "llm_eval"]
-
-    for values in itertools.product((False, True), repeat=len(other_markers)):
-        assignments = dict(zip(other_markers, values, strict=True))
-        assignments["llm_eval"] = True
-        if expression.evaluate(lambda name, /, **kwargs: assignments.get(name, False)):
-            return True
-
-    return False
+    if _LLM_EVAL_NEGATED_PATTERN.search(markexpr):
+        return False
+    return True
 
 
 def pytest_configure(config):
