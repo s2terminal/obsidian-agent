@@ -29,7 +29,7 @@ if _is_langfuse_enabled():
 
         observe = _langfuse_observe
         get_client = _langfuse_get_client
-    except Exception:
+    except (ModuleNotFoundError, ImportError):
         # Langfuse が利用できない場合でも要約処理自体は継続する
         pass
 
