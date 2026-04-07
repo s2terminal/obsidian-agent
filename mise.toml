@@ -1,4 +1,6 @@
 [tools]
+node = "lts"
+npm = "latest"
 uv = "latest"
 
 [env]
