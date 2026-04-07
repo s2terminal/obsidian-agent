@@ -20,3 +20,12 @@ $ mise x -- uv run adk eval \
   tests/reader/summarizer_eval.test.json \
   --print_detailed_results
 ```
+
+### ADK
+https://adk.dev/tutorials/coding-with-ai/
+
+ADKについてはSkillかMCPかllms.txtが使える。
+
+```
+$ mise x -- npx skills add google/adk-docs/skills -y -g
+```
