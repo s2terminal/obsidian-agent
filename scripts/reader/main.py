@@ -13,6 +13,7 @@ import asyncio
 from datetime import datetime, timezone
 
 import feedparser
+from google.adk.apps import App
 from google.adk.runners import InMemoryRunner
 
 from .cache import load_cache, save_cache
@@ -114,7 +115,8 @@ async def process_feed(
 
 async def main(*, summarize_only: bool = False):
     feeds_data = load_feeds()
-    runner = InMemoryRunner(agent=summarizer_agent, app_name=APP_NAME)
+    app = App(name=APP_NAME, root_agent=summarizer_agent)
+    runner = InMemoryRunner(app=app)
 
     all_articles: list[dict] = []
     updated_feeds: list[dict] = []
