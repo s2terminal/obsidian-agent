@@ -11,18 +11,31 @@ usage:
 import argparse
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import quote
 
 import feedparser
 from google.adk.apps import App
 from google.adk.runners import InMemoryRunner
 
 from .cache import load_cache, save_cache
-from .config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW
+from .config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
 from .feed import load_feeds, parse_last_fetched, save_feeds
 from .notifier import notify_slack
 from .parser import entry_content, entry_id, entry_published_date, entry_published_datetime
 from .summarizer import summarize, summarizer_agent
 from .writer import render_news, write_news
+
+
+def build_obsidian_open_url(output_md_full_path: Path, *, vault: str = "RemoteVault") -> str:
+    feed_out_dir_full_path = get_feed_out_dir()
+    obsidian_file_relative_path = (
+        Path("ai-generated") / "feed" / output_md_full_path.relative_to(feed_out_dir_full_path)
+    )
+    return (
+        f"obsidian://open?vault={quote(vault, safe='')}&file="
+        f"{quote(obsidian_file_relative_path.as_posix(), safe='/')}"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -132,7 +145,7 @@ async def main(*, summarize_only: bool = False):
             print("\n要約のみモード: last_fetched は更新せず、要約ファイルも保存しません")
             return
 
-        write_news(all_articles)
+        output_md_full_path = write_news(all_articles)
 
         # フィードのlast_fetchedを更新して保存
         now = datetime.now(timezone.utc).isoformat()
@@ -140,7 +153,11 @@ async def main(*, summarize_only: bool = False):
             feed_info["last_fetched"] = now
         save_feeds(feeds_data)
 
-        msg = f"ai-generated/feed/ に {len(all_articles)}件の記事を追加しました"
+        obsidian_url = build_obsidian_open_url(output_md_full_path)
+        msg = (
+            f"ai-generated/feed/ に {len(all_articles)}件の記事を追加しました\n"
+            f"{obsidian_url}"
+        )
         print(f"\n{msg}")
         notify_slack(f":newspaper: RSS Reader 完了: {msg}")
     else:

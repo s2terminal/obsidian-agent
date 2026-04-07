@@ -38,3 +38,5 @@ def write_news(new_articles: list[dict], feed_out_dir: Path | None = None):
         md_path.write_text(existing.rstrip("\n") + "\n\n" + rendered, encoding="utf-8")
     else:
         md_path.write_text(rendered, encoding="utf-8")
+
+    return md_path

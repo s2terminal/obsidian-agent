@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, MagicMock
+from pathlib import Path
 
 import pytest
 
@@ -56,3 +57,44 @@ class TestMain:
 
         parsed = parser.parse_args(["--summarize-only"])
         assert parsed.summarize_only is True
+
+    @pytest.mark.asyncio
+    async def test_notifies_slack_with_obsidian_link_when_articles_added(self, monkeypatch):
+        feeds_data = {
+            "feeds": [
+                {
+                    "url": "https://example.com/feed",
+                    "last_fetched": "2026-03-01T00:00:00+00:00",
+                }
+            ]
+        }
+        articles = [
+            {
+                "title": "Article 1",
+                "link": "https://example.com/1",
+                "summary": "- 要約",
+                "published": "2026/03/30",
+                "feed_title": "Feed",
+                "feed_link": "https://example.com/feed",
+            }
+        ]
+
+        save_feeds = MagicMock()
+        notify_slack = MagicMock()
+
+        monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
+        monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=articles))
+        monkeypatch.setattr(main_module, "write_news", MagicMock(return_value=Path("/vault/ai-generated/feed/2026/03-30.md")))
+        monkeypatch.setattr(main_module, "get_feed_out_dir", MagicMock(return_value=Path("/vault/ai-generated/feed")))
+        monkeypatch.setattr(main_module, "save_feeds", save_feeds)
+        monkeypatch.setattr(main_module, "notify_slack", notify_slack)
+
+        await main_module.main(summarize_only=False)
+
+        save_feeds.assert_called_once_with(feeds_data)
+        notify_slack.assert_called_once()
+        sent_message = notify_slack.call_args[0][0]
+        assert "ai-generated/feed/ に 1件の記事を追加しました" in sent_message
+        assert "obsidian://open?vault=RemoteVault&file=ai-generated/feed/2026/03-30.md" in sent_message
