@@ -47,7 +47,6 @@ def build_obsidian_open_url(output_md_full_path: Path, *, vault: str = "RemoteVa
                 f"{output_md_full_path} は {feed_out_dir_full_path} 配下でも "
                 "'ai-generated' 配下でもありません"
             )
-
     return (
         f"obsidian://open?vault={quote(vault, safe='')}&file="
         f"{quote(obsidian_file_relative_path.as_posix(), safe='/')}"
