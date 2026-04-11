@@ -34,6 +34,7 @@ class TestMain:
         notify_slack = MagicMock()
 
         monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
+        monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=articles))
         monkeypatch.setattr(main_module, "render_news", render_news)

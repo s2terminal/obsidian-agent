@@ -28,10 +28,25 @@ from .writer import render_news, write_news
 
 
 def build_obsidian_open_url(output_md_full_path: Path, *, vault: str = "RemoteVault") -> str:
-    feed_out_dir_full_path = get_feed_out_dir()
-    obsidian_file_relative_path = (
-        Path("ai-generated") / "feed" / output_md_full_path.relative_to(feed_out_dir_full_path)
-    )
+    output_md_full_path = output_md_full_path.resolve()
+    feed_out_dir_full_path = get_feed_out_dir().resolve()
+
+    try:
+        obsidian_file_relative_path = (
+            Path("ai-generated") / "feed" / output_md_full_path.relative_to(feed_out_dir_full_path)
+        )
+    except ValueError:
+        if "ai-generated" in output_md_full_path.parts:
+            ai_generated_index = output_md_full_path.parts.index("ai-generated")
+            obsidian_file_relative_path = Path(
+                *output_md_full_path.parts[ai_generated_index:]
+            )
+        else:
+            raise ValueError(
+                "Obsidian URL を生成できません: "
+                f"{output_md_full_path} は {feed_out_dir_full_path} 配下でも "
+                "'ai-generated' 配下でもありません"
+            )
     return (
         f"obsidian://open?vault={quote(vault, safe='')}&file="
         f"{quote(obsidian_file_relative_path.as_posix(), safe='/')}"
