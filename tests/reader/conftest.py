@@ -5,7 +5,7 @@ from time import struct_time
 import pytest
 
 _LLM_EVAL_WORD_PATTERN = re.compile(r"\bllm_eval\b")
-_LLM_EVAL_NEGATED_PATTERN = re.compile(r"\bnot\s+llm_eval\b")
+_LLM_EVAL_NEGATED_PATTERN = re.compile(r"\bnot(?:\s+|\s*\(\s*)llm_eval(?:\s*\))?\b")
 
 
 def _should_enable_langfuse(markexpr: str) -> bool:
