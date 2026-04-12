@@ -42,6 +42,13 @@ class TestLoadFeeds:
         result = load_feeds(feed_md)
         assert result == data
 
+    def test_no_trailing_newline_before_fence(self, tmp_path):
+        """手編集でYAMLコンテンツの末尾改行が欠けても読み込めることを確認"""
+        feed_md = tmp_path / "feed.md"
+        feed_md.write_text("```yaml\nfeeds: []```\n", encoding="utf-8")
+        result = load_feeds(feed_md)
+        assert result == {"feeds": []}
+
     def test_no_yaml_block_raises(self, tmp_path):
         feed_md = tmp_path / "feed.md"
         feed_md.write_text("# No YAML here\n", encoding="utf-8")
