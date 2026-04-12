@@ -32,6 +32,16 @@ class TestLoadFeeds:
         save_feeds(data, feed_md)
         assert load_feeds(feed_md) == data
 
+    def test_crlf_line_endings(self, tmp_path):
+        data = {"feeds": [{"url": "https://example.com/rss"}]}
+        yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
+        crlf_content = f"```yaml\r\n{yaml_content.replace(chr(10), chr(13) + chr(10))}```\r\n"
+        feed_md = tmp_path / "feed.md"
+        feed_md.write_bytes(crlf_content.encode("utf-8"))
+
+        result = load_feeds(feed_md)
+        assert result == data
+
     def test_no_yaml_block_raises(self, tmp_path):
         feed_md = tmp_path / "feed.md"
         feed_md.write_text("# No YAML here\n", encoding="utf-8")

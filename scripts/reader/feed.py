@@ -6,7 +6,7 @@ import yaml
 
 from .config import get_feed_md
 
-_YAML_BLOCK_PATTERN = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
+_YAML_BLOCK_PATTERN = re.compile(r"```yaml\r?\n(.*?)\r?\n```", re.DOTALL)
 
 
 def load_feeds(feed_md: Path | None = None) -> dict:
@@ -21,6 +21,8 @@ def load_feeds(feed_md: Path | None = None) -> dict:
 def save_feeds(data: dict, feed_md: Path | None = None):
     path = feed_md or get_feed_md()
     yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
+    if not yaml_content.endswith("\n"):
+        yaml_content += "\n"
     path.write_text(f"```yaml\n{yaml_content}```\n", encoding="utf-8")
 
 
