@@ -6,7 +6,7 @@ import yaml
 
 from .config import get_feed_md
 
-_YAML_BLOCK_PATTERN = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
+_YAML_BLOCK_PATTERN = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
 
 
 def load_feeds(feed_md: Path | None = None) -> dict:

@@ -1,3 +1,4 @@
+import pytest
 import yaml
 
 from reader.feed import load_feeds, parse_last_fetched, save_feeds
@@ -32,7 +33,6 @@ class TestLoadFeeds:
         assert load_feeds(feed_md) == data
 
     def test_no_yaml_block_raises(self, tmp_path):
-        import pytest
         feed_md = tmp_path / "feed.md"
         feed_md.write_text("# No YAML here\n", encoding="utf-8")
         with pytest.raises(ValueError, match="YAMLコードブロックが見つかりません"):
@@ -57,7 +57,7 @@ class TestSaveFeeds:
         save_feeds({"feeds": []}, feed_md)
         content = feed_md.read_text(encoding="utf-8")
         assert content.startswith("```yaml\n")
-        assert "```" in content
+        assert content.endswith("```\n")
 
 
 class TestParseLastFetched:
