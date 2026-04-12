@@ -20,8 +20,8 @@ def safe_getenv(key: str) -> str:
         raise EnvironmentError(f"環境変数 {key} が設定されていません。")
     return value
 
-def get_feed_yaml() -> Path:
-    return Path(safe_getenv("FEED_YAML"))
+def get_feed_md() -> Path:
+    return Path(safe_getenv("FEED_MD"))
 
 
 def get_feed_out_dir() -> Path:
