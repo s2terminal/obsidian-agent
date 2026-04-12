@@ -1,21 +1,29 @@
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
-from .config import get_feed_yaml
+from .config import get_feed_md
+
+_YAML_BLOCK_PATTERN = re.compile(r"```yaml\r?\n(.*?)\r?\n?```", re.DOTALL)
 
 
-def load_feeds(feed_yaml: Path | None = None) -> dict:
-    path = feed_yaml or get_feed_yaml()
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def load_feeds(feed_md: Path | None = None) -> dict:
+    path = feed_md or get_feed_md()
+    content = path.read_text(encoding="utf-8")
+    match = _YAML_BLOCK_PATTERN.search(content)
+    if not match:
+        raise ValueError(f"YAMLコードブロックが見つかりません: {path}")
+    return yaml.safe_load(match.group(1))
 
 
-def save_feeds(data: dict, feed_yaml: Path | None = None):
-    path = feed_yaml or get_feed_yaml()
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+def save_feeds(data: dict, feed_md: Path | None = None):
+    path = feed_md or get_feed_md()
+    yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
+    if not yaml_content.endswith("\n"):
+        yaml_content += "\n"
+    path.write_text(f"```yaml\n{yaml_content}```\n", encoding="utf-8")
 
 
 def parse_last_fetched(feed_info: dict) -> datetime | None:

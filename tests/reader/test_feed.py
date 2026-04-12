@@ -1,41 +1,80 @@
+import pytest
 import yaml
 
 from reader.feed import load_feeds, parse_last_fetched, save_feeds
 
+_YAML_BLOCK_TEMPLATE = "```yaml\n{yaml_content}```\n"
+
+
+def _make_feed_md(tmp_path, name, data):
+    feed_md = tmp_path / name
+    yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
+    feed_md.write_text(_YAML_BLOCK_TEMPLATE.format(yaml_content=yaml_content), encoding="utf-8")
+    return feed_md
+
 
 class TestLoadFeeds:
     def test_load(self, tmp_path):
-        feed_yaml = tmp_path / "feed.yaml"
         data = {"feeds": [{"url": "https://example.com/rss", "max_articles": 3}]}
-        feed_yaml.write_text(yaml.dump(data), encoding="utf-8")
+        feed_md = _make_feed_md(tmp_path, "feed.md", data)
 
-        result = load_feeds(feed_yaml)
+        result = load_feeds(feed_md)
         assert result == data
 
     def test_roundtrip(self, tmp_path):
-        feed_yaml = tmp_path / "feed.yaml"
+        feed_md = tmp_path / "feed.md"
         data = {
             "feeds": [
                 {"url": "https://example.com/rss", "max_articles": 5},
                 {"url": "https://other.com/atom", "last_fetched": "2026-03-30T00:00:00+00:00"},
             ]
         }
-        save_feeds(data, feed_yaml)
-        assert load_feeds(feed_yaml) == data
+        save_feeds(data, feed_md)
+        assert load_feeds(feed_md) == data
+
+    def test_crlf_line_endings(self, tmp_path):
+        data = {"feeds": [{"url": "https://example.com/rss"}]}
+        yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
+        crlf_content = f"```yaml\r\n{yaml_content.replace(chr(10), chr(13) + chr(10))}```\r\n"
+        feed_md = tmp_path / "feed.md"
+        feed_md.write_bytes(crlf_content.encode("utf-8"))
+
+        result = load_feeds(feed_md)
+        assert result == data
+
+    def test_no_trailing_newline_before_fence(self, tmp_path):
+        """手編集でYAMLコンテンツの末尾改行が欠けても読み込めることを確認"""
+        feed_md = tmp_path / "feed.md"
+        feed_md.write_text("```yaml\nfeeds: []```\n", encoding="utf-8")
+        result = load_feeds(feed_md)
+        assert result == {"feeds": []}
+
+    def test_no_yaml_block_raises(self, tmp_path):
+        feed_md = tmp_path / "feed.md"
+        feed_md.write_text("# No YAML here\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="YAMLコードブロックが見つかりません"):
+            load_feeds(feed_md)
 
 
 class TestSaveFeeds:
     def test_creates_file(self, tmp_path):
-        feed_yaml = tmp_path / "new_feed.yaml"
-        save_feeds({"feeds": []}, feed_yaml)
-        assert feed_yaml.exists()
+        feed_md = tmp_path / "new_feed.md"
+        save_feeds({"feeds": []}, feed_md)
+        assert feed_md.exists()
 
     def test_save_unicode(self, tmp_path):
-        feed_yaml = tmp_path / "feed.yaml"
+        feed_md = tmp_path / "feed.md"
         data = {"feeds": [{"url": "https://example.com", "title": "日本語フィード"}]}
-        save_feeds(data, feed_yaml)
-        content = feed_yaml.read_text(encoding="utf-8")
+        save_feeds(data, feed_md)
+        content = feed_md.read_text(encoding="utf-8")
         assert "日本語フィード" in content
+
+    def test_saves_markdown_yaml_block(self, tmp_path):
+        feed_md = tmp_path / "feed.md"
+        save_feeds({"feeds": []}, feed_md)
+        content = feed_md.read_text(encoding="utf-8")
+        assert content.startswith("```yaml\n")
+        assert content.endswith("```\n")
 
 
 class TestParseLastFetched:
