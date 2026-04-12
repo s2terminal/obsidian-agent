@@ -2,6 +2,29 @@
   "eval_set_id": "summarizer_eval",
   "eval_cases": [
     {
+      "eval_id": "simple_news_article",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "以下の記事を日本語で要約してください。\n\nタイトル: 東京都、2026年4月から公共交通機関の運賃を値上げへ\n\n内容:\n東京都は12日、2026年4月1日から都営地下鉄・都バスの運賃を平均10%値上げすると発表した。物価上昇や設備維持費の増加が主な理由で、初乗り運賃は180円から200円に改定される。"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "東京都は2026年4月1日から都営地下鉄・都バスの運賃を平均10%値上げすると発表。物価上昇などを理由に初乗りは180円から200円に改定される。"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "eval_id": "game_review_2025",
       "conversation": [
         {
