@@ -38,6 +38,7 @@ ai-generated/feed/
 ```yaml
 feeds:
 - url: https://example.com/feed.xml
+  title: 表示用のフィード名
   last_fetched: null
 - url: https://example.com/rss
   max_articles: 10
@@ -47,6 +48,7 @@ feeds:
 | フィールド | 説明 |
 |---|---|
 | `url` | RSSフィードのURL |
+| `title` | 要約記事で表示する任意のフィード名。設定時はRSS本体のタイトルより優先される |
 | `last_fetched` | 最終取得時刻（ISO 8601）。通常実行時のみスクリプトが自動更新する |
 | `max_articles` | フィードごとの最大要約件数（省略時: 5） |
 

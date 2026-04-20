@@ -1,5 +1,7 @@
 # Obsidian Agent
 
+Obsidianのノートに対してAIエージェントで操作を行うツール群です。
+
 .envを設定して、`mise run`で実行。
 
 ## 開発者向け

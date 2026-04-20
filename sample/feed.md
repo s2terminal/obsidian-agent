@@ -2,4 +2,5 @@
 feeds:
 - last_fetched: '2025-12-30T21:31:00.457011+00:00'
   url: https://blog.s2terminal.com/rss.xml
+  title: マイ ブログ
 ```

@@ -190,6 +190,46 @@ class TestProcessFeed:
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
     @patch("reader.main.feedparser.parse")
+    async def test_prefers_title_from_feed_md_when_present(self, mock_parse, mock_summarize):
+        mock_parse.return_value = self._make_feed_result(
+            [self._make_entry("e1", "Article 1")],
+            feed_title="Fetched Feed Title",
+        )
+        mock_summarize.return_value = "- 要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        result = await process_feed(runner, {
+            "url": "https://example.com/feed",
+            "title": "Configured Feed Title",
+        })
+
+        assert len(result) == 1
+        assert result[0]["feed_title"] == "Configured Feed Title"
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
+    async def test_blank_title_in_feed_md_falls_back_to_feed_title(self, mock_parse, mock_summarize):
+        mock_parse.return_value = self._make_feed_result(
+            [self._make_entry("e1", "Article 1")],
+            feed_title="Fetched Feed Title",
+        )
+        mock_summarize.return_value = "- 要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        result = await process_feed(runner, {
+            "url": "https://example.com/feed",
+            "title": "   ",
+        })
+
+        assert len(result) == 1
+        assert result[0]["feed_title"] == "Fetched Feed Title"
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
     async def test_pending_retried_even_if_older_than_last_fetched(self, mock_parse, mock_summarize):
         """キャッシュに存在する記事は last_fetched より古くてもリトライされる。"""
         from reader.cache import save_cache

@@ -25,7 +25,7 @@ class TestLoadFeeds:
         feed_md = tmp_path / "feed.md"
         data = {
             "feeds": [
-                {"url": "https://example.com/rss", "max_articles": 5},
+                {"url": "https://example.com/rss", "max_articles": 5, "title": "表示名"},
                 {"url": "https://other.com/atom", "last_fetched": "2026-03-30T00:00:00+00:00"},
             ]
         }

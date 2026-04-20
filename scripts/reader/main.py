@@ -64,6 +64,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_feed_title(feed_info: dict, fallback_title: str) -> str:
+    configured_title = feed_info.get("title")
+    if isinstance(configured_title, str):
+        configured_title = configured_title.strip()
+    if configured_title:
+        return str(configured_title)
+    return fallback_title
+
+
 async def process_feed(
     runner: InMemoryRunner, feed_info: dict
 ) -> list[dict]:
@@ -127,7 +136,7 @@ async def process_feed(
         # 要約成功 → キャッシュから削除
         cache.pop(eid, None)
 
-        feed_title = getattr(feed.feed, "title", url) or url
+        feed_title = _resolve_feed_title(feed_info, getattr(feed.feed, "title", url) or url)
         feed_link = getattr(feed.feed, "link", url) or url
 
         articles.append({
