@@ -1608,6 +1608,7 @@ dependencies = [
     { name = "google-genai" },
     { name = "langfuse" },
     { name = "pyyaml" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -1626,6 +1627,7 @@ requires-dist = [
     { name = "google-genai", specifier = ">=1.68.0" },
     { name = "langfuse", specifier = ">=4.0.6" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "typer", specifier = ">=0.24.1" },
 ]
 
 [package.metadata.requires-dev]
