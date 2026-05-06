@@ -53,12 +53,6 @@ class TestMain:
         notify_slack.assert_not_called()
         assert feeds_data["feeds"][0]["last_fetched"] == "2026-03-01T00:00:00+00:00"
 
-    def test_build_parser_accepts_summarize_only(self):
-        parser = main_module.build_parser()
-
-        parsed = parser.parse_args(["--summarize-only"])
-        assert parsed.summarize_only is True
-
     @pytest.mark.asyncio
     async def test_notifies_slack_with_obsidian_link_when_articles_added(self, monkeypatch):
         feeds_data = {

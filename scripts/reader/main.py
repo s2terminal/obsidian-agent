@@ -2,13 +2,8 @@
 RSS Reader & Summarizer
 
 フィードから最新記事を取得し、Google ADK (Gemini) で要約して出力する。
-
-usage:
-    mise x -- uv run -m scripts.reader.main
-    mise x -- uv run -m scripts.reader.main --summarize-only
 """
 
-import argparse
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,17 +46,6 @@ def build_obsidian_open_url(output_md_full_path: Path, *, vault: str = "RemoteVa
         f"obsidian://open?vault={quote(vault, safe='')}&file="
         f"{quote(obsidian_file_relative_path.as_posix(), safe='/')}"
     )
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="RSSフィードの記事を要約します")
-    parser.add_argument(
-        "--summarize-only",
-        dest="summarize_only",
-        action="store_true",
-        help="要約を生成して標準出力に流します。last_fetched と要約ファイルは更新しません",
-    )
-    return parser
 
 
 def _resolve_feed_title(feed_info: dict, fallback_title: str) -> str:
@@ -190,6 +174,5 @@ async def main(*, summarize_only: bool = False):
             notify_slack(":newspaper: RSS Reader 完了: 新規記事はありません")
 
 
-if __name__ == "__main__":
-    args = build_parser().parse_args()
-    asyncio.run(main(summarize_only=args.summarize_only))
+def run(*, summarize_only: bool = False):
+    asyncio.run(main(summarize_only=summarize_only))

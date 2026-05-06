@@ -5,8 +5,8 @@ RSSフィードから最新記事を取得し、Google ADK (Gemini) で日本語
 ## 実行方法
 
 ```bash
-mise x -- uv run -m scripts.reader.main
-mise x -- uv run -m scripts.reader.main --summarize-only
+mise x -- uv run python main.py reader
+mise x -- uv run python main.py reader --summarize-only
 ```
 
 ### 前提条件
@@ -54,7 +54,7 @@ feeds:
 
 ## 要約のみモード（--summarize-only）
 
-`--summarize-only` を付けると、要約を生成して標準出力へ流します。
+`main.py reader --summarize-only` を付けると、要約を生成して標準出力へ流します。
 
 - 要約ファイルは保存しない
 - `feed.md` の `last_fetched` は更新しない
