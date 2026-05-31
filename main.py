@@ -2,8 +2,6 @@ from typing import Annotated
 
 import typer
 
-from scripts.reader.main import run as run_reader_main
-
 app = typer.Typer(no_args_is_help=True)
 reader_app = typer.Typer()
 
@@ -15,6 +13,7 @@ def cli() -> None:
 
 @reader_app.callback(invoke_without_command=True)
 def reader(
+    ctx: typer.Context,
     summarize_only: Annotated[
         bool,
         typer.Option(
@@ -24,7 +23,17 @@ def reader(
     ] = False,
 ):
     """RSS reader を実行します。"""
+    if ctx.invoked_subcommand is not None:
+        return
+    from scripts.reader.main import run as run_reader_main
     run_reader_main(summarize_only=summarize_only)
+
+
+@reader_app.command("check")
+def reader_check() -> None:
+    """フィード設定を読み込んで内容を表示します。"""
+    from scripts.reader.checker import check
+    check()
 
 
 app.add_typer(reader_app, name="reader")

@@ -7,8 +7,12 @@ uv = "latest"
 _.file = { path = ".env" }
 
 [tasks.run_reader]
-description = "RSSリーダーを実行"
+description = "RSSリーダー: 実行"
 run = "uv run python main.py reader"
+
+[tasks.feed_check]
+description = "RSSリーダー: フィード設定を確認"
+run = "uv run python main.py reader check"
 
 [tasks.test]
 description = "テストを実行"
