@@ -93,3 +93,22 @@ class TestMain:
         sent_message = notify_slack.call_args[0][0]
         assert "ai-generated/feed/ に 1件の記事を追加しました" in sent_message
         assert "obsidian://open?vault=RemoteVault&file=ai-generated/feed/2026/03-30.md" in sent_message
+
+    @pytest.mark.asyncio
+    async def test_inactive_feed_is_skipped(self, monkeypatch):
+        feeds_data = {
+            "feeds": [
+                {"url": "https://example.com/feed", "active": False},
+            ]
+        }
+        process_feed = AsyncMock()
+
+        monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
+        monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "process_feed", process_feed)
+        monkeypatch.setattr(main_module, "notify_slack", MagicMock())
+
+        await main_module.main(summarize_only=False)
+
+        process_feed.assert_not_called()

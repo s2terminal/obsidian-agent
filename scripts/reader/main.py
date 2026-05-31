@@ -142,6 +142,8 @@ async def main(*, summarize_only: bool = False):
     all_articles: list[dict] = []
     updated_feeds: list[dict] = []
     for feed_info in feeds_data["feeds"]:
+        if feed_info.get("active") is False:
+            continue
         articles = await process_feed(runner, feed_info)
         if articles:
             updated_feeds.append(feed_info)
