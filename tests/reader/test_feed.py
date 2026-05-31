@@ -1,7 +1,7 @@
 import pytest
 import yaml
 
-from reader.feed import load_feeds, parse_last_fetched, save_feeds
+from reader.feed import feed_id, load_feeds, parse_last_fetched, save_feeds
 
 _YAML_BLOCK_TEMPLATE = "```yaml\n{yaml_content}```\n"
 
@@ -11,6 +11,29 @@ def _make_feed_md(tmp_path, name, data):
     yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
     feed_md.write_text(_YAML_BLOCK_TEMPLATE.format(yaml_content=yaml_content), encoding="utf-8")
     return feed_md
+
+
+class TestFeedId:
+    def test_returns_id_key(self):
+        assert feed_id({"myblog": None, "url": "https://example.com", "title": "Blog"}) == "myblog"
+
+    def test_returns_none_when_no_id(self):
+        assert feed_id({"url": "https://example.com", "title": "Blog"}) is None
+
+    def test_roundtrip_via_yaml(self, tmp_path):
+        data = {"feeds": [{"myblog": None, "url": "https://example.com", "title": "Blog"}]}
+        feed_md = tmp_path / "feed.md"
+        save_feeds(data, feed_md)
+        loaded = load_feeds(feed_md)
+        assert feed_id(loaded["feeds"][0]) == "myblog"
+
+    def test_null_saved_as_empty_value(self, tmp_path):
+        data = {"feeds": [{"myblog": None, "url": "https://example.com"}]}
+        feed_md = tmp_path / "feed.md"
+        save_feeds(data, feed_md)
+        content = feed_md.read_text()
+        assert "myblog:\n" in content
+        assert "null" not in content
 
 
 class TestLoadFeeds:
