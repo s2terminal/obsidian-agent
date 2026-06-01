@@ -36,7 +36,7 @@ class TestMain:
         monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
         monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
-        monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=articles))
+        monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=(articles, [])))
         monkeypatch.setattr(main_module, "render_news", render_news)
         monkeypatch.setattr(main_module, "write_news", write_news)
         monkeypatch.setattr(main_module, "save_feeds", save_feeds)
@@ -80,7 +80,7 @@ class TestMain:
         monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
         monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
-        monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=articles))
+        monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=(articles, [])))
         monkeypatch.setattr(main_module, "write_news", MagicMock(return_value=Path("/vault/ai-generated/feed/2026/03-30.md")))
         monkeypatch.setattr(main_module, "get_feed_out_dir", MagicMock(return_value=Path("/vault/ai-generated/feed")))
         monkeypatch.setattr(main_module, "save_feeds", save_feeds)
@@ -112,3 +112,64 @@ class TestMain:
         await main_module.main(summarize_only=False)
 
         process_feed.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_format_errors_included_in_slack_notification(self, monkeypatch):
+        feeds_data = {
+            "feeds": [
+                {"url": "https://example.com/notes.md.txt"},
+            ]
+        }
+        error_msg = "日付セクションが見つかりません（フォーマット不正の可能性）: https://example.com/notes.md.txt"
+        notify_slack = MagicMock()
+
+        monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
+        monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "process_feed", AsyncMock(return_value=([], [error_msg])))
+        monkeypatch.setattr(main_module, "notify_slack", notify_slack)
+
+        await main_module.main(summarize_only=False)
+
+        notify_slack.assert_called_once()
+        sent_message = notify_slack.call_args[0][0]
+        assert ":warning: フォーマットエラー:" in sent_message
+        assert error_msg in sent_message
+
+    @pytest.mark.asyncio
+    async def test_format_errors_included_even_when_articles_exist(self, monkeypatch):
+        feeds_data = {
+            "feeds": [
+                {"url": "https://example.com/feed"},
+                {"url": "https://example.com/notes.md.txt"},
+            ]
+        }
+        articles = [
+            {
+                "title": "Article 1", "link": "https://example.com/1",
+                "summary": "- 要約", "published": "2026/03/30",
+                "feed_title": "Feed", "feed_link": "https://example.com/feed",
+            }
+        ]
+        error_msg = "日付セクションが見つかりません（フォーマット不正の可能性）: https://example.com/notes.md.txt"
+        notify_slack = MagicMock()
+
+        monkeypatch.setattr(main_module, "load_feeds", lambda: feeds_data)
+        monkeypatch.setattr(main_module, "App", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(main_module, "InMemoryRunner", MagicMock(return_value=MagicMock()))
+        monkeypatch.setattr(
+            main_module, "process_feed",
+            AsyncMock(side_effect=[(articles, []), ([], [error_msg])])
+        )
+        monkeypatch.setattr(main_module, "write_news", MagicMock(return_value=Path("/vault/ai-generated/feed/2026/03-30.md")))
+        monkeypatch.setattr(main_module, "get_feed_out_dir", MagicMock(return_value=Path("/vault/ai-generated/feed")))
+        monkeypatch.setattr(main_module, "save_feeds", MagicMock())
+        monkeypatch.setattr(main_module, "notify_slack", notify_slack)
+
+        await main_module.main(summarize_only=False)
+
+        notify_slack.assert_called_once()
+        sent_message = notify_slack.call_args[0][0]
+        assert "1件の記事を追加しました" in sent_message
+        assert ":warning: フォーマットエラー:" in sent_message
+        assert error_msg in sent_message

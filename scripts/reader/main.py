@@ -16,6 +16,7 @@ from google.adk.runners import InMemoryRunner
 from .cache import load_cache, save_cache
 from .config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
 from .feed import load_feeds, parse_last_fetched, save_feeds
+from .md_feed_parser import fetch_md_feed, is_markdown_feed
 from .notifier import notify_slack
 from .parser import entry_content, entry_id, entry_published_date, entry_published_datetime
 from .summarizer import summarize, summarizer_agent
@@ -59,14 +60,31 @@ def _resolve_feed_title(feed_info: dict, fallback_title: str) -> str:
 
 async def process_feed(
     runner: InMemoryRunner, feed_info: dict
-) -> list[dict]:
+) -> tuple[list[dict], list[str]]:
     url = feed_info["url"]
     print(f"フィード取得中: {url}")
 
-    feed = feedparser.parse(url)
-    if feed.bozo and not feed.entries:
-        print("  エラー: フィードの取得に失敗")
-        return []
+    if is_markdown_feed(feed_info):
+        try:
+            entries = fetch_md_feed(url)
+        except Exception as e:
+            msg = f"Markdownフィードの取得に失敗: {e} ({url})"
+            print(f"  エラー: {msg}")
+            return [], [msg]
+        if not entries:
+            msg = f"日付セクションが見つかりません（フォーマット不正の可能性）: {url}"
+            print(f"  エラー: {msg}")
+            return [], [msg]
+        feed_title = _resolve_feed_title(feed_info, url)
+        feed_link = url
+    else:
+        feed = feedparser.parse(url)
+        if feed.bozo and not feed.entries:
+            print("  エラー: フィードの取得に失敗")
+            return [], []
+        entries = feed.entries
+        feed_title = _resolve_feed_title(feed_info, getattr(feed.feed, "title", url) or url)
+        feed_link = getattr(feed.feed, "link", url) or url
 
     cache = load_cache(url)
     articles: list[dict] = []
@@ -79,7 +97,7 @@ async def process_feed(
     default_max = MAX_ARTICLES_NEW if last_fetched is None else MAX_ARTICLES
     max_articles = feed_info.get("max_articles", default_max)
 
-    for entry in feed.entries:
+    for entry in entries:
         eid = entry_id(entry)
         cached_entry = cache.get(eid)
 
@@ -120,9 +138,6 @@ async def process_feed(
         # 要約成功 → キャッシュから削除
         cache.pop(eid, None)
 
-        feed_title = _resolve_feed_title(feed_info, getattr(feed.feed, "title", url) or url)
-        feed_link = getattr(feed.feed, "link", url) or url
-
         articles.append({
             "title": title, "link": link, "summary": summary, "published": published,
             "feed_title": feed_title, "feed_link": feed_link,
@@ -131,7 +146,7 @@ async def process_feed(
 
     save_cache(url, cache)
     print(f"  新規要約: {len(summarized_ids)}件")
-    return articles
+    return articles, []
 
 
 async def main(*, summarize_only: bool = False):
@@ -140,18 +155,27 @@ async def main(*, summarize_only: bool = False):
     runner = InMemoryRunner(app=app)
 
     all_articles: list[dict] = []
+    all_errors: list[str] = []
     updated_feeds: list[dict] = []
     for feed_info in feeds_data["feeds"]:
         if feed_info.get("active") is False:
             continue
-        articles = await process_feed(runner, feed_info)
+        articles, errors = await process_feed(runner, feed_info)
         if articles:
             updated_feeds.append(feed_info)
         all_articles.extend(articles)
+        all_errors.extend(errors)
+
+    error_section = ""
+    if all_errors:
+        error_lines = "\n".join(f"• {e}" for e in all_errors)
+        error_section = f"\n:warning: フォーマットエラー:\n{error_lines}"
 
     if all_articles:
         if summarize_only:
             print(render_news(all_articles), end="")
+            if error_section:
+                print(f"\n{error_section.strip()}")
             print("\n要約のみモード: last_fetched は更新せず、要約ファイルも保存しません")
             return
 
@@ -169,11 +193,15 @@ async def main(*, summarize_only: bool = False):
             f"{obsidian_url}"
         )
         print(f"\n{msg}")
-        notify_slack(f":newspaper: RSS Reader 完了: {msg}")
+        if error_section:
+            print(error_section)
+        notify_slack(f":newspaper: RSS Reader 完了: {msg}{error_section}")
     else:
         print("\n新規記事はありません")
+        if error_section:
+            print(error_section)
         if not summarize_only:
-            notify_slack(":newspaper: RSS Reader 完了: 新規記事はありません")
+            notify_slack(f":newspaper: RSS Reader 完了: 新規記事はありません{error_section}")
 
 
 def run(*, summarize_only: bool = False):

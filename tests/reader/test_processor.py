@@ -50,14 +50,14 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {
+        articles, errors = await process_feed(runner, {
             "url": "https://example.com/feed",
             "last_fetched": "2026-01-01T00:00:00+00:00",
         })
 
-        assert len(result) == 2
-        assert result[0]["title"] == "Article 1"
-        assert result[1]["title"] == "Article 2"
+        assert len(articles) == 2
+        assert articles[0]["title"] == "Article 1"
+        assert articles[1]["title"] == "Article 2"
         assert mock_summarize.call_count == 2
 
     @pytest.mark.asyncio
@@ -81,11 +81,11 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed"})
+        articles, errors = await process_feed(runner, {"url": "https://example.com/feed"})
 
-        assert len(result) == 1
-        assert result[0]["title"] == "Pending Title"
-        assert result[0]["summary"] == "- リトライ要約"
+        assert len(articles) == 1
+        assert articles[0]["title"] == "Pending Title"
+        assert articles[0]["summary"] == "- リトライ要約"
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
@@ -97,9 +97,9 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed", "max_articles": 2})
+        articles, errors = await process_feed(runner, {"url": "https://example.com/feed", "max_articles": 2})
 
-        assert len(result) == 2
+        assert len(articles) == 2
         assert mock_summarize.call_count == 2
 
     @pytest.mark.asyncio
@@ -113,9 +113,9 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed"})
+        articles, errors = await process_feed(runner, {"url": "https://example.com/feed"})
 
-        assert len(result) == 0
+        assert len(articles) == 0
 
         # キャッシュにリトライ対象のデータが保存されていることを確認
         from reader.cache import load_cache
@@ -131,9 +131,9 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/broken"})
+        articles, errors = await process_feed(runner, {"url": "https://example.com/broken"})
 
-        assert result == []
+        assert articles == []
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
@@ -153,13 +153,13 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {
+        articles, errors = await process_feed(runner, {
             "url": "https://example.com/feed",
             "last_fetched": "2026-03-10T00:00:00+00:00",
         })
 
-        assert len(result) == 1
-        assert result[0]["title"] == "New Article"
+        assert len(articles) == 1
+        assert articles[0]["title"] == "New Article"
         assert mock_summarize.call_count == 1
 
     @pytest.mark.asyncio
@@ -180,12 +180,12 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {"url": "https://example.com/feed"})
+        articles, errors = await process_feed(runner, {"url": "https://example.com/feed"})
 
-        assert len(result) == 1
+        assert len(articles) == 1
         assert mock_summarize.call_count == 1
         # フィード先頭（最新）の記事が処理されること
-        assert result[0]["title"] == "Article 0"
+        assert articles[0]["title"] == "Article 0"
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
@@ -199,13 +199,13 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {
+        articles, errors = await process_feed(runner, {
             "url": "https://example.com/feed",
             "title": "Configured Feed Title",
         })
 
-        assert len(result) == 1
-        assert result[0]["feed_title"] == "Configured Feed Title"
+        assert len(articles) == 1
+        assert articles[0]["feed_title"] == "Configured Feed Title"
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
@@ -219,13 +219,13 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {
+        articles, errors = await process_feed(runner, {
             "url": "https://example.com/feed",
             "title": "   ",
         })
 
-        assert len(result) == 1
-        assert result[0]["feed_title"] == "Fetched Feed Title"
+        assert len(articles) == 1
+        assert articles[0]["feed_title"] == "Fetched Feed Title"
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
@@ -251,13 +251,13 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {
+        articles, errors = await process_feed(runner, {
             "url": "https://example.com/feed",
             "last_fetched": "2026-03-01T00:00:00+00:00",
         })
 
-        assert len(result) == 1
-        assert result[0]["title"] == "Old Pending"
+        assert len(articles) == 1
+        assert articles[0]["title"] == "Old Pending"
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
@@ -272,9 +272,9 @@ class TestProcessFeed:
 
         from reader.main import process_feed
         runner = MagicMock()
-        result = await process_feed(runner, {
+        articles, errors = await process_feed(runner, {
             "url": "https://example.com/feed",
             "last_fetched": "2026-03-01T00:00:00+00:00",
         })
 
-        assert len(result) == 1
+        assert len(articles) == 1
