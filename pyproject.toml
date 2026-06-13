@@ -7,7 +7,7 @@ requires-python = ">=3.14.1"
 dependencies = [
     "feedparser>=6.0.12",
     "google-cloud-aiplatform[adk,agent-engines]>=1.112",
-    "google-genai>=1.68.0",
+    "google-genai>=2.0.0",
     "langfuse>=4.0.6",
     "pyyaml>=6.0",
     "typer>=0.24.1",

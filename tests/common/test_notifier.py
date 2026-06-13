@@ -1,10 +1,10 @@
 from unittest.mock import MagicMock, patch
 
-from reader.notifier import notify_slack
+from common.notifier import notify_slack
 
 
 class TestNotifySlack:
-    @patch("reader.notifier.urllib.request.urlopen")
+    @patch("common.notifier.urllib.request.urlopen")
     def test_success(self, mock_urlopen):
         mock_resp = MagicMock()
         mock_resp.status = 200
@@ -15,7 +15,7 @@ class TestNotifySlack:
         notify_slack("test message", webhook_url="https://hooks.slack.com/test")
         mock_urlopen.assert_called_once()
 
-    @patch("reader.notifier.urllib.request.urlopen")
+    @patch("common.notifier.urllib.request.urlopen")
     def test_failure_does_not_raise(self, mock_urlopen):
         mock_urlopen.side_effect = Exception("Network error")
         # Should not raise

@@ -16,3 +16,5 @@ scripts/reader/.cache/
 
 sample/vault/**/*
 scripts/reader/.adk/eval_history/
+
+tmp/

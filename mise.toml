@@ -14,6 +14,10 @@ run = "uv run python main.py reader"
 description = "RSSリーダー: フィード設定を確認"
 run = "uv run python main.py reader check"
 
+[tasks.run_research]
+description = "リサーチ: 実行（クエリは -- で渡す）"
+run = "uv run python main.py research"
+
 [tasks.test]
 description = "テストを実行"
 run = "uv run pytest tests/"

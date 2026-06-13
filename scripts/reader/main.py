@@ -7,46 +7,20 @@ RSS Reader & Summarizer
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
 
 import feedparser
 from google.adk.apps import App
 from google.adk.runners import InMemoryRunner
 
-from .cache import load_cache, save_cache
-from .config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
-from .feed import load_feeds, parse_last_fetched, save_feeds
-from .md_feed_parser import fetch_md_feed, is_markdown_feed
-from .notifier import notify_slack
-from .parser import entry_content, entry_id, entry_published_date, entry_published_datetime
-from .summarizer import summarize, summarizer_agent
-from .writer import render_news, write_news
-
-
-def build_obsidian_open_url(output_md_full_path: Path, *, vault: str = "RemoteVault") -> str:
-    output_md_full_path = output_md_full_path.resolve()
-    feed_out_dir_full_path = get_feed_out_dir().resolve()
-
-    try:
-        obsidian_file_relative_path = (
-            Path("ai-generated") / "feed" / output_md_full_path.relative_to(feed_out_dir_full_path)
-        )
-    except ValueError:
-        if "ai-generated" in output_md_full_path.parts:
-            ai_generated_index = output_md_full_path.parts.index("ai-generated")
-            obsidian_file_relative_path = Path(
-                *output_md_full_path.parts[ai_generated_index:]
-            )
-        else:
-            raise ValueError(
-                "Obsidian URL を生成できません: "
-                f"{output_md_full_path} は {feed_out_dir_full_path} 配下でも "
-                "'ai-generated' 配下でもありません"
-            )
-    return (
-        f"obsidian://open?vault={quote(vault, safe='')}&file="
-        f"{quote(obsidian_file_relative_path.as_posix(), safe='/')}"
-    )
+from common.obsidian import build_obsidian_open_url
+from reader.cache import load_cache, save_cache
+from reader.config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
+from reader.feed import load_feeds, parse_last_fetched, save_feeds
+from reader.md_feed_parser import fetch_md_feed, is_markdown_feed
+from reader.notifier import notify_slack
+from reader.parser import entry_content, entry_id, entry_published_date, entry_published_datetime
+from reader.summarizer import summarize, summarizer_agent
+from reader.writer import render_news, write_news
 
 
 def _resolve_feed_title(feed_info: dict, fallback_title: str) -> str:
@@ -187,7 +161,10 @@ async def main(*, summarize_only: bool = False):
             feed_info["last_fetched"] = now
         save_feeds(feeds_data)
 
-        obsidian_url = build_obsidian_open_url(output_md_full_path)
+        rel = Path("ai-generated") / "feed" / output_md_full_path.resolve().relative_to(
+            get_feed_out_dir().resolve()
+        )
+        obsidian_url = build_obsidian_open_url(rel)
         msg = (
             f"ai-generated/feed/ に {len(all_articles)}件の記事を追加しました\n"
             f"{obsidian_url}"

@@ -1,4 +1,4 @@
-from .feed import feed_id, load_feeds
+from reader.feed import feed_id, load_feeds
 
 
 def check():
