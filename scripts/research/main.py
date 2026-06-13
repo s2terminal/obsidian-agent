@@ -7,7 +7,6 @@ Obsidian Vault (ai-generated/research) に保存して Slack 通知する。
 
 import time
 from datetime import datetime
-from typing import Any
 
 from google import genai
 
@@ -19,6 +18,8 @@ MINI_MODEL = "gemini-2.5-flash"
 RESEARCH_AGENT = "deep-research-pro-preview-12-2025"
 POLL_INTERVAL_SECONDS = 10
 OUTPUT_SUBDIR = "research"
+# Interactions API のステータスのうち、リトライせず終了扱いにするもの（completed 以外の終端状態）
+FAILURE_STATUSES = ("failed", "cancelled", "incomplete", "budget_exceeded")
 
 
 def summarize_filename(client: genai.Client, query: str, text: str) -> str:
@@ -69,10 +70,8 @@ def run(query: str) -> None:
     while True:
         interaction = client.interactions.get(interaction.id)
         if interaction.status == "completed":
-            interaction_any: Any = interaction
-            outputs = getattr(interaction_any, "outputs", None) or []
-            last_output = outputs[-1] if outputs else None
-            text = getattr(last_output, "text", None) or str(last_output or "")
+            # 新しい steps スキーマでは末尾のモデル出力テキストを output_text で取得する
+            text = interaction.output_text
             content = build_output_content(query, text)
             slug = summarize_filename(client, query, text)
             filename = f"{datetime.now().strftime('%Y%m%d')}_{slug}.md"
@@ -85,10 +84,8 @@ def run(query: str) -> None:
             obsidian_url = build_obsidian_open_url(relative)
             notify_slack(f"リサーチが完了し、保存されました: {obsidian_url}")
             break
-        elif interaction.status == "failed":
-            interaction_any: Any = interaction
-            error = getattr(interaction_any, "error", "不明なエラー")
-            print(f"リサーチに失敗しました: {error}")
-            notify_slack(f"リサーチに失敗しました: {error}")
+        elif interaction.status in FAILURE_STATUSES:
+            print(f"リサーチに失敗しました: status={interaction.status}")
+            notify_slack(f"リサーチに失敗しました: status={interaction.status}")
             break
         time.sleep(POLL_INTERVAL_SECONDS)
