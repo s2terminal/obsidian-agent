@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from .config import get_feed_md
+from reader.config import get_feed_md
 
 _YAML_BLOCK_PATTERN = re.compile(r"```yaml\r?\n(.*?)\r?\n?```", re.DOTALL)
 

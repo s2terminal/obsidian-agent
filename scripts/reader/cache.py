@@ -2,7 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from .config import CACHE_DIR
+from reader.config import CACHE_DIR
 
 
 def cache_path(feed_url: str, cache_dir: Path = CACHE_DIR) -> Path:

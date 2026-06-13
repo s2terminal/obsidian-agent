@@ -10,7 +10,7 @@ from google.genai import types
 from pydantic import BaseModel
 from pydantic import Field
 
-from .config import APP_NAME, DEFAULT_MODEL, USER_ID
+from reader.config import APP_NAME, DEFAULT_MODEL, USER_ID
 
 
 def _is_langfuse_enabled() -> bool:
