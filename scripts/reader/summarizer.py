@@ -4,6 +4,7 @@ from typing import Literal
 
 from google.adk.agents import Agent
 from google.adk.agents import SequentialAgent
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.runners import InMemoryRunner
 from google.genai import types
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from reader.config import APP_NAME, DEFAULT_MODEL, USER_ID
+from reader.feed import IMPORTANCE_HIGH, IMPORTANCE_LOW, normalize_importance
 
 
 def _is_langfuse_enabled() -> bool:
@@ -40,6 +42,22 @@ if _is_langfuse_enabled():
         pass
 
 SummaryFormat = Literal["single_sentence", "bullet_list"]
+
+# 重要度から要約形式を強制するマッピング。
+# high は常に詳細（箇条書き）、low は詳細を避け一文で簡潔に要約する。
+# ここに無い重要度（normal 等）は記事内容から自動判定する。
+_IMPORTANCE_FORCED_FORMAT: dict[str, SummaryFormat] = {
+    IMPORTANCE_HIGH: "bullet_list",
+    IMPORTANCE_LOW: "single_sentence",
+}
+
+# 要約形式を強制する際にセッション state へ書き込むキー。
+FORCE_SUMMARY_FORMAT_KEY = "force_summary_format"
+
+
+def forced_summary_format(importance: object) -> SummaryFormat | None:
+    """重要度に応じて強制する要約形式を返す。自動判定する場合は None。"""
+    return _IMPORTANCE_FORCED_FORMAT.get(normalize_importance(importance))
 
 
 class SummaryFormatSelection(BaseModel):
@@ -103,10 +121,29 @@ def _summary_writer_instruction(context: ReadonlyContext) -> str:
         + "箇条書きのみを出力し、それ以外の前置きや説明は不要です。"
     )
 
+def _skip_selector_when_format_forced(
+    callback_context: CallbackContext,
+) -> types.Content | None:
+    """重要度で要約形式が強制されている場合、判定LLMを呼ばずにスキップする。
+
+    state に強制形式が設定されていれば summary_format に反映し、
+    判定エージェントの応答として返すことで LLM 呼び出しを省略する。
+    """
+    forced = callback_context.state.get(FORCE_SUMMARY_FORMAT_KEY)
+    if not forced:
+        return None
+    callback_context.state["summary_format"] = forced
+    return types.Content(
+        role="model",
+        parts=[types.Part(text=json.dumps({"summary_format": forced}))],
+    )
+
+
 summary_format_selector_agent = Agent(
     name="summary_format_selector",
     model=DEFAULT_MODEL,
     description="記事が一文要約向きか箇条書き要約向きかを判定する。",
+    before_agent_callback=_skip_selector_when_format_forced,
     instruction=(
         "あなたは記事要約形式の判定アシスタントです。"
         "与えられた記事を読み、一文形式か箇条書き形式のどちらで要約すべきかだけを判断してください。\n"
@@ -141,7 +178,9 @@ summarizer_agent = SequentialAgent(
 
 
 @observe(as_type="generation", capture_input=False, capture_output=False)
-async def summarize(runner: InMemoryRunner, title: str, content: str) -> str:
+async def summarize(
+    runner: InMemoryRunner, title: str, content: str, *, importance: str = "normal"
+) -> str:
     message = (
         f"以下の記事を日本語で要約してください。\n\n"
         f"タイトル: {title}\n\n"
@@ -155,8 +194,11 @@ async def summarize(runner: InMemoryRunner, title: str, content: str) -> str:
             )
         except Exception as e:
             print(f"Langfuse入力トレーシング失敗: {e}")
+    # 重要度で要約形式が強制される場合は、判定LLMをスキップするための state を渡す
+    forced = forced_summary_format(importance)
+    initial_state = {FORCE_SUMMARY_FORMAT_KEY: forced} if forced else {}
     session = await runner.session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID
+        app_name=APP_NAME, user_id=USER_ID, state=initial_state
     )
     responses: list[str] = []
     async for event in runner.run_async(

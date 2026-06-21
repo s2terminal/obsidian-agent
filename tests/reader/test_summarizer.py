@@ -12,7 +12,10 @@ from pydantic import Field
 
 from reader.config import APP_NAME
 from reader.summarizer import (
+    _skip_selector_when_format_forced,
     _summary_writer_instruction,
+    FORCE_SUMMARY_FORMAT_KEY,
+    forced_summary_format,
     SummaryFormatSelection,
     summarize,
     summarizer_agent,
@@ -63,11 +66,18 @@ class MockLlm(BaseLlm):
 
 
 def make_runner(
-    selector_responses: list[str], writer_responses: list[str]
+    selector_responses: list[str],
+    writer_responses: list[str],
+    *,
+    skip_callback: bool = False,
 ) -> tuple[InMemoryRunner, MockLlm, MockLlm]:
     """判定・要約の各サブエージェントにMockLlmを設定したInMemoryRunnerを生成する。"""
     selector_llm = MockLlm(model="mock-model", responses=selector_responses)
     writer_llm = MockLlm(model="mock-model", responses=writer_responses)
+    selector_kwargs = {}
+    if skip_callback:
+        # 本番の判定エージェントと同じく、強制形式時に判定LLMをスキップさせる
+        selector_kwargs["before_agent_callback"] = _skip_selector_when_format_forced
     selector_agent = Agent(
         name=summary_format_selector_agent.name,
         model=selector_llm,
@@ -75,6 +85,7 @@ def make_runner(
         description=summary_format_selector_agent.description,
         output_schema=summary_format_selector_agent.output_schema,
         output_key=summary_format_selector_agent.output_key,
+        **selector_kwargs,
     )
     writer_agent = Agent(
         name=summary_writer_agent.name,
@@ -181,3 +192,65 @@ class TestSummarize:
         assert "x" * 8001 not in selector_request_text
         assert "x" * 8000 in writer_request_text
         assert "x" * 8001 not in writer_request_text
+
+
+class TestForcedSummaryFormat:
+    def test_high_forces_bullet_list(self):
+        assert forced_summary_format("high") == "bullet_list"
+
+    def test_low_forces_single_sentence(self):
+        assert forced_summary_format("low") == "single_sentence"
+
+    def test_normal_returns_none(self):
+        assert forced_summary_format("normal") is None
+
+    def test_unknown_or_missing_returns_none(self):
+        assert forced_summary_format("urgent") is None
+        assert forced_summary_format(None) is None
+
+
+class TestSkipSelectorCallback:
+    def test_returns_none_when_not_forced(self):
+        ctx = DummyReadonlyContext({})
+        assert _skip_selector_when_format_forced(ctx) is None
+
+    def test_sets_format_and_returns_content_when_forced(self):
+        ctx = DummyReadonlyContext({FORCE_SUMMARY_FORMAT_KEY: "single_sentence"})
+
+        result = _skip_selector_when_format_forced(ctx)
+
+        assert ctx.state["summary_format"] == "single_sentence"
+        assert result is not None
+        assert result.parts is not None
+        assert "single_sentence" in result.parts[0].text
+
+
+class TestSummarizeWithImportance:
+    @pytest.mark.asyncio
+    async def test_low_importance_skips_selector(self):
+        # selector_responses は空: 判定LLMが呼ばれないことを検証する
+        runner, selector_llm, _ = make_runner([], ["短い一文要約"], skip_callback=True)
+
+        result = await summarize(runner, "Title", "Content", importance="low")
+
+        assert result == "短い一文要約"
+        assert len(selector_llm.received_requests) == 0
+
+    @pytest.mark.asyncio
+    async def test_high_importance_skips_selector(self):
+        runner, selector_llm, _ = make_runner([], ["- 詳細1\n- 詳細2"], skip_callback=True)
+
+        result = await summarize(runner, "Title", "Content", importance="high")
+
+        assert "詳細1" in result
+        assert len(selector_llm.received_requests) == 0
+
+    @pytest.mark.asyncio
+    async def test_normal_importance_runs_selector(self):
+        runner, selector_llm, _ = make_runner(
+            ['{"summary_format": "bullet_list"}'], ["- 要約"], skip_callback=True
+        )
+
+        await summarize(runner, "Title", "Content", importance="normal")
+
+        assert len(selector_llm.received_requests) == 1

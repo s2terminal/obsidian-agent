@@ -8,6 +8,27 @@ from reader.config import get_feed_md
 
 _YAML_BLOCK_PATTERN = re.compile(r"```yaml\r?\n(.*?)\r?\n?```", re.DOTALL)
 
+# フィードの重要度レベル
+IMPORTANCE_HIGH = "high"      # 常に詳細（箇条書き）で要約する
+IMPORTANCE_NORMAL = "normal"  # 記事内容から要約形式を自動判定する（デフォルト）
+IMPORTANCE_LOW = "low"        # 詳細な要約はせず、常に一文で簡潔に要約する
+DEFAULT_IMPORTANCE = IMPORTANCE_NORMAL
+_VALID_IMPORTANCE = {IMPORTANCE_HIGH, IMPORTANCE_NORMAL, IMPORTANCE_LOW}
+
+
+def normalize_importance(value: object) -> str:
+    """重要度の値を既知のレベルに正規化する。不正値・未設定はデフォルトを返す。"""
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _VALID_IMPORTANCE:
+            return normalized
+    return DEFAULT_IMPORTANCE
+
+
+def feed_importance(feed_info: dict) -> str:
+    """フィード設定から正規化済みの重要度レベルを返す。"""
+    return normalize_importance(feed_info.get("importance"))
+
 
 def feed_id(feed_info: dict) -> str | None:
     """フィード設定dictからIDキー（値がNoneのキー）を返す。"""

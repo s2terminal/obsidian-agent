@@ -15,7 +15,7 @@ from google.adk.runners import InMemoryRunner
 from common.obsidian import build_obsidian_open_url
 from reader.cache import load_cache, save_cache
 from reader.config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
-from reader.feed import load_feeds, parse_last_fetched, save_feeds
+from reader.feed import feed_importance, load_feeds, parse_last_fetched, save_feeds
 from reader.md_feed_parser import fetch_md_feed, is_markdown_feed
 from reader.notifier import notify_slack
 from reader.parser import entry_content, entry_id, entry_published_date, entry_published_datetime
@@ -61,6 +61,7 @@ async def process_feed(
         feed_link = getattr(feed.feed, "link", url) or url
 
     cache = load_cache(url)
+    importance = feed_importance(feed_info)
     articles: list[dict] = []
     summarized_ids: list[str] = []
 
@@ -99,7 +100,7 @@ async def process_feed(
             published = entry_published_date(entry)
 
         try:
-            summary = await summarize(runner, str(title), content)
+            summary = await summarize(runner, str(title), content, importance=importance)
         except Exception as e:
             print(f"  要約失敗 タイトル: {title} エラー: {e}")
             # fetch済み・要約失敗 → キャッシュに保存してリトライ対象にする
