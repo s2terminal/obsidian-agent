@@ -262,6 +262,34 @@ class TestProcessFeed:
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
     @patch("reader.main.feedparser.parse")
+    async def test_passes_importance_to_summarize(self, mock_parse, mock_summarize):
+        """feed_info の importance が summarize に渡される。"""
+        mock_parse.return_value = self._make_feed_result([self._make_entry("e1", "Article 1")])
+        mock_summarize.return_value = "要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        await process_feed(runner, {"url": "https://example.com/feed", "importance": "low"})
+
+        assert mock_summarize.await_args.kwargs["importance"] == "low"
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
+    async def test_defaults_importance_to_normal(self, mock_parse, mock_summarize):
+        """importance 未設定なら normal が summarize に渡される。"""
+        mock_parse.return_value = self._make_feed_result([self._make_entry("e1", "Article 1")])
+        mock_summarize.return_value = "- 要約"
+
+        from reader.main import process_feed
+        runner = MagicMock()
+        await process_feed(runner, {"url": "https://example.com/feed"})
+
+        assert mock_summarize.await_args.kwargs["importance"] == "normal"
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.main.feedparser.parse")
     async def test_articles_without_date_not_skipped(self, mock_parse, mock_summarize):
         """投稿日が無い記事は last_fetched があってもスキップされない。"""
         entry = self._make_entry("e1", "No Date Article")

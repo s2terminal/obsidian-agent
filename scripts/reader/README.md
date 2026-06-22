@@ -42,6 +42,7 @@ feeds:
   last_fetched: null
 - url: https://example.com/rss
   max_articles: 10
+  importance: low
   last_fetched: null
 ```
 
@@ -51,6 +52,19 @@ feeds:
 | `title` | 要約記事で表示する任意のフィード名。設定時はRSS本体のタイトルより優先される |
 | `last_fetched` | 最終取得時刻（ISO 8601）。通常実行時のみスクリプトが自動更新する |
 | `max_articles` | フィードごとの最大要約件数（省略時: 5） |
+| `importance` | フィードの重要度。要約の詳しさを制御する（省略時: `normal`） |
+
+### importance（重要度）による要約の出し分け
+
+フィードごとに `importance` を設定すると、要約の詳しさを切り替えられる。
+
+| 値 | 挙動 |
+|---|---|
+| `high` | 常に詳細な箇条書き（3〜5個）で要約する |
+| `normal` | 記事内容から一文要約か箇条書き要約かを自動判定する（デフォルト） |
+| `low` | 詳細な要約はせず、常に140文字以内の一文で簡潔に要約する |
+
+重要でないフィード（`low`）では詳細な要約を省くことで、要約の判定LLM呼び出しも省略される。
 
 ## 要約のみモード（--summarize-only）
 

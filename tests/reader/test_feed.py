@@ -1,7 +1,14 @@
 import pytest
 import yaml
 
-from reader.feed import feed_id, load_feeds, parse_last_fetched, save_feeds
+from reader.feed import (
+    feed_id,
+    feed_importance,
+    load_feeds,
+    normalize_importance,
+    parse_last_fetched,
+    save_feeds,
+)
 
 _YAML_BLOCK_TEMPLATE = "```yaml\n{yaml_content}```\n"
 
@@ -98,6 +105,33 @@ class TestSaveFeeds:
         content = feed_md.read_text(encoding="utf-8")
         assert content.startswith("```yaml\n")
         assert content.endswith("```\n")
+
+
+class TestImportance:
+    def test_default_when_missing(self):
+        assert feed_importance({}) == "normal"
+
+    def test_valid_values_pass_through(self):
+        assert feed_importance({"importance": "high"}) == "high"
+        assert feed_importance({"importance": "normal"}) == "normal"
+        assert feed_importance({"importance": "low"}) == "low"
+
+    def test_case_insensitive_and_trimmed(self):
+        assert feed_importance({"importance": " HIGH "}) == "high"
+
+    def test_invalid_falls_back_to_default(self):
+        assert feed_importance({"importance": "urgent"}) == "normal"
+
+    def test_non_string_falls_back_to_default(self):
+        assert normalize_importance(123) == "normal"
+        assert normalize_importance(None) == "normal"
+
+    def test_roundtrip_via_yaml(self, tmp_path):
+        data = {"feeds": [{"url": "https://example.com/rss", "importance": "low"}]}
+        feed_md = tmp_path / "feed.md"
+        save_feeds(data, feed_md)
+        loaded = load_feeds(feed_md)
+        assert feed_importance(loaded["feeds"][0]) == "low"
 
 
 class TestParseLastFetched:

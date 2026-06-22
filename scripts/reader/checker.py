@@ -12,9 +12,11 @@ def check():
         title = feed.get("title") or "(タイトル未設定)"
         last_fetched = feed.get("last_fetched") or "(未取得)"
         max_articles = feed.get("max_articles", "(デフォルト)")
+        importance = feed.get("importance", "(デフォルト)")
         status = "[active]" if active else " [無効]"
         print(f"\n[{i}] {fid} {status}")
         print(f"    title        : {title}")
         print(f"    url          : {url}")
         print(f"    last_fetched : {last_fetched}")
         print(f"    max_articles : {max_articles}")
+        print(f"    importance   : {importance}")
