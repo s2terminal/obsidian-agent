@@ -1280,7 +1280,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "google-adk", extras = ["eval"], specifier = ">=1.28.0" },
+    { name = "google-adk", extras = ["eval"], specifier = ">=2.0.0" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.26" },
