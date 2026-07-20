@@ -5,6 +5,7 @@ Gemini Deep Research でクエリを調査し、結果を Markdown として
 Obsidian Vault (ai-generated/research) に保存して Slack 通知する。
 """
 
+import re
 import time
 from datetime import datetime
 
@@ -20,6 +21,14 @@ POLL_INTERVAL_SECONDS = 10
 OUTPUT_SUBDIR = "research"
 # Interactions API のステータスのうち、リトライせず終了扱いにするもの（completed 以外の終端状態）
 FAILURE_STATUSES = ("failed", "cancelled", "incomplete", "budget_exceeded")
+
+SOURCE_SECTION_RE = re.compile(
+    r"(?im)^(?:#{1,6}\s+sources|\*\*sources:\*\*|sources:)\s*$"
+)
+SOURCE_LINK_RE = re.compile(
+    r"(?m)^\s*(\d+)\.\s+\[[^\]\n]+\]\((https?://[^\s)]+)\)\s*$"
+)
+CITATION_RE = re.compile(r"\[cite:\s*(\d+(?:\s*,\s*\d+)*)\s*\]", re.IGNORECASE)
 
 
 def summarize_filename(client: genai.Client, query: str, text: str) -> str:
@@ -46,8 +55,32 @@ def summarize_filename(client: genai.Client, query: str, text: str) -> str:
     return make_safe_slug(query)
 
 
+def link_citations(text: str) -> str:
+    """本文中の ``[cite: 1, 2]`` を Sources の Markdown リンクへ変換する。"""
+    source_section = SOURCE_SECTION_RE.search(text)
+    if not source_section:
+        return text
+
+    sources = {
+        number: url
+        for number, url in SOURCE_LINK_RE.findall(text[source_section.end() :])
+    }
+    if not sources:
+        return text
+
+    def replace(match: re.Match[str]) -> str:
+        numbers = [number.strip() for number in match.group(1).split(",")]
+        links = [f"[{number}]({sources[number]})" for number in numbers if number in sources]
+        missing = [number for number in numbers if number not in sources]
+        if missing:
+            links.append(f"[cite: {', '.join(missing)}]")
+        return ", ".join(links)
+
+    return CITATION_RE.sub(replace, text)
+
+
 def build_output_content(query: str, text: str) -> str:
-    body = text.lstrip("﻿").lstrip()
+    body = link_citations(text.lstrip("﻿").lstrip())
     return f"# Query\n\n{query}\n\n---\n\n{body}\n"
 
 
