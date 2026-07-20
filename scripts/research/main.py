@@ -5,6 +5,7 @@ Gemini Deep Research でクエリを調査し、結果を Markdown として
 Obsidian Vault (ai-generated/research) に保存して Slack 通知する。
 """
 
+import re
 import time
 from datetime import datetime
 
@@ -20,6 +21,39 @@ POLL_INTERVAL_SECONDS = 10
 OUTPUT_SUBDIR = "research"
 # Interactions API のステータスのうち、リトライせず終了扱いにするもの（completed 以外の終端状態）
 FAILURE_STATUSES = ("failed", "cancelled", "incomplete", "budget_exceeded")
+
+# `[cite: 1, 2]` のような引用記法を捕捉する
+CITE_PATTERN = re.compile(r"\[cite:\s*([0-9,\s]+)\]")
+# Sources セクションの各エントリ `N. [label](url)` を捕捉する
+SOURCE_PATTERN = re.compile(r"^\s*(\d+)\.\s*\[[^\]]*\]\(([^)]+)\)", re.MULTILINE)
+SOURCES_HEADING = "**Sources:**"
+
+
+def parse_sources(text: str) -> dict[int, str]:
+    """Markdown 末尾の `**Sources:**` セクションから番号→URL の対応を抽出する。"""
+    idx = text.find(SOURCES_HEADING)
+    section = text[idx:] if idx != -1 else ""
+    return {int(m.group(1)): m.group(2) for m in SOURCE_PATTERN.finditer(section)}
+
+
+def _replace_cite(match: re.Match[str], sources: dict[int, str]) -> str:
+    nums = [int(n.strip()) for n in match.group(1).split(",") if n.strip()]
+    parts: list[str] = []
+    for n in nums:
+        url = sources.get(n)
+        if url:
+            parts.append(f"[{n}]({url})")
+        else:
+            parts.append(f"[{n}]")
+    return "<sup>" + ",".join(parts) + "</sup>"
+
+
+def link_citations(text: str) -> str:
+    """`[cite: N]` を Sources セクションの URL に基づくクリック可能なリンクに置換する。"""
+    sources = parse_sources(text)
+    if not sources:
+        return text
+    return CITE_PATTERN.sub(lambda m: _replace_cite(m, sources), text)
 
 
 def summarize_filename(client: genai.Client, query: str, text: str) -> str:
@@ -47,7 +81,7 @@ def summarize_filename(client: genai.Client, query: str, text: str) -> str:
 
 
 def build_output_content(query: str, text: str) -> str:
-    body = text.lstrip("﻿").lstrip()
+    body = link_citations(text.lstrip("﻿").lstrip())
     return f"# Query\n\n{query}\n\n---\n\n{body}\n"
 
 
