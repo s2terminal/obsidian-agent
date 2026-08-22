@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+.pytest_cache
+__pycache__
+*.pyc
+.env
+.claude
+.agents
+.devcontainer
+sample/vault
+scripts/reader/.cache
+tmp

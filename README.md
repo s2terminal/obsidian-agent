@@ -4,30 +4,116 @@ Obsidianのノートに対してAIエージェントで操作を行うツール�
 
 .envを設定して、`mise run`で実行。
 
+## ホストでmiseを使う
+
+miseをインストールしたホストでは、コンテナを使わずに実行できます。
+初回はmiseでNode.js、npm、uvをインストールします。
+
+```bash
+mise install
+```
+
+RSSリーダーを実行します。
+
+```bash
+mise run run_reader
+mise run feed_check
+mise run run_reader -- --summarize-only
+```
+
+リサーチ機能のクエリは、`--`以降に指定します。
+
+```bash
+mise run run_research -- "調査したい内容"
+```
+
+## Podman Composeを使う
+
+PodmanとPodman Composeをインストールし、開発用イメージをビルドします。
+
+```bash
+podman compose build
+```
+
+`compose.yaml`は開発用の`development`ステージを使用します。
+開発用依存関係を含み、リポジトリを`/app`へマウントするため、
+Pythonコードの変更はイメージの再ビルドなしで反映されます。
+`pyproject.toml`または`uv.lock`を変更した場合は、イメージを再ビルドしてください。
+
+開発用コンテナには固定の`ENTRYPOINT`を設定していません。
+任意のコマンドを指定できるため、bashも直接起動できます。
+
+```bash
+podman compose run --rm app bash
+```
+
+### Podman Composeでアプリを実行する
+
+RSSリーダーを実行します。
+
+```bash
+podman compose run --rm app python main.py reader
+```
+
+設定したフィードの確認と、ファイルを更新しない要約のみの実行には、
+以下のコマンドを使用します。
+
+```bash
+podman compose run --rm app python main.py reader check
+podman compose run --rm app python main.py reader --summarize-only
+```
+
+リサーチ機能のクエリは、`research`以降に指定します。
+
+```bash
+podman compose run --rm app python main.py research "調査したい内容"
+```
+
+RSSリーダーのキャッシュは、Podmanの名前付きボリューム
+`obsidian-agent_reader-cache`に保存されます。
+
+### Podman Composeでテストする
+
+開発用イメージにはpytestなどの開発用依存関係が含まれます。
+
+```bash
+podman compose run --rm app pytest tests/
+```
+
+## 実行用イメージをビルドする
+
+`Containerfile`の最終ステージは、開発用依存関係を含まない`runtime`です。
+Composeを使用しないイメージビルドでは、`runtime`ステージが使用されます。
+
+```bash
+podman build -t obsidian-agent .
+```
+
 ## 開発者向け
 
 以下のコマンドでテストを実行。
 
-```
-$ mise run test
+```bash
+mise run test
 ```
 
 LLMを実際に呼び出す評価テスト（`llm_eval` マーカー）は通常のテスト実行では除外されます。
 明示的に実行するには以下のコマンドを使用してください。
 
-```
-$ mise run test -- -m llm_eval
-$ mise x -- uv run adk eval \
+```bash
+mise run test -- -m llm_eval
+mise x -- uv run adk eval \
   scripts/reader \
   tests/reader/summarizer_eval.test.json \
   --print_detailed_results
 ```
 
 ### ADK
+
 https://adk.dev/tutorials/coding-with-ai/
 
 ADKについてはSkillかMCPかllms.txtが使える。
 
-```
-$ mise x -- npx skills add google/adk-docs/skills -y -g
+```bash
+npx skills add google/adk-docs/skills
 ```

@@ -4,15 +4,24 @@ RSSフィードから最新記事を取得し、Google ADK (Gemini) で日本語
 
 ## 実行方法
 
+ホストでmiseを使う場合:
+
 ```bash
-mise x -- uv run python main.py reader
-mise x -- uv run python main.py reader --summarize-only
+mise run run_reader
+mise run run_reader -- --summarize-only
+```
+
+Podman Composeを使う場合:
+
+```bash
+podman compose run --rm app python main.py reader
+podman compose run --rm app python main.py reader --summarize-only
 ```
 
 ### 前提条件
 
-- Python 3.14+, uv, mise
-- .envにGemini API Keyと必要なパスを設定
+- mise、またはPodmanとPodman Compose
+- `.env`にGemini API Keyとホスト側の必要なパスを設定
 
 ## ファイル構成
 
