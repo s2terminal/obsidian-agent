@@ -15,7 +15,7 @@ from google.adk.runners import InMemoryRunner
 from common.obsidian import build_obsidian_open_url
 from reader.cache import load_cache, save_cache
 from reader.config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
-from reader.feed import feed_importance, load_feeds, parse_last_fetched, save_feeds
+from reader.feed import feed_importance, load_feeds, parse_last_fetched, save_status
 from reader.md_feed_parser import fetch_md_feed, is_markdown_feed
 from reader.notifier import notify_slack
 from reader.parser import entry_content, entry_id, entry_published_date, entry_published_datetime
@@ -160,7 +160,7 @@ async def main(*, summarize_only: bool = False):
         now = datetime.now(timezone.utc).isoformat()
         for feed_info in updated_feeds:
             feed_info["last_fetched"] = now
-        save_feeds(feeds_data)
+        save_status({"feeds": updated_feeds})
 
         rel = Path("ai-generated") / "feed" / output_md_full_path.resolve().relative_to(
             get_feed_out_dir().resolve()

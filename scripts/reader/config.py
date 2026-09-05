@@ -4,6 +4,7 @@ from common.config import (
     DEFAULT_MODEL,
     Models,
     get_ai_generated_dir,
+    get_obsidian_root,
     get_slack_webhook_url,
     get_timezone,
     safe_getenv,
@@ -21,7 +22,7 @@ __all__ = [
     "USER_ID",
     "MAX_ARTICLES",
     "MAX_ARTICLES_NEW",
-    "get_feed_md",
+    "get_obsidian_agent_dir",
     "get_feed_out_dir",
 ]
 
@@ -34,8 +35,14 @@ MAX_ARTICLES = 5  # フィードごとに要約する最大記事数
 MAX_ARTICLES_NEW = 1  # last_fetched 未設定（新規追加）フィードに適用する最大記事数
 
 
-def get_feed_md() -> Path:
-    return Path(safe_getenv("FEED_MD"))
+def get_obsidian_agent_dir() -> Path:
+    relative_path = Path(safe_getenv("OBSIDIAN_AGENT_DIR"))
+    if relative_path.is_absolute():
+        raise ValueError("OBSIDIAN_AGENT_DIRにはOBSIDIAN_ROOTからの相対パスを指定してください")
+    path = get_obsidian_root() / relative_path
+    if path.is_file():
+        raise ValueError("OBSIDIAN_AGENT_DIRにはディレクトリを指定してください")
+    return path
 
 
 def get_feed_out_dir() -> Path:

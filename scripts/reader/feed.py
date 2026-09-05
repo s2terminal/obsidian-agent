@@ -1,10 +1,13 @@
+import os
 import re
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
-from reader.config import get_feed_md
+from reader.config import get_obsidian_agent_dir
+
 
 _YAML_BLOCK_PATTERN = re.compile(r"```yaml\r?\n(.*?)\r?\n?```", re.DOTALL)
 
@@ -35,22 +38,69 @@ def feed_id(feed_info: dict) -> str | None:
     return next((k for k, v in feed_info.items() if v is None), None)
 
 
-def load_feeds(feed_md: Path | None = None) -> dict:
-    path = feed_md or get_feed_md()
-    content = path.read_text(encoding="utf-8")
-    match = _YAML_BLOCK_PATTERN.search(content)
+def validate_feeds(data: object) -> dict:
+    """設定の構造と、状態の識別に用いるURLの一意性を確認する。"""
+    if not isinstance(data, dict) or not isinstance(data.get("feeds"), list):
+        raise ValueError("feedsにはリストを指定してください")
+    urls = set()
+    for feed in data["feeds"]:
+        if not isinstance(feed, dict) or not isinstance(feed.get("url"), str) or not feed["url"].strip():
+            raise ValueError("各フィードには空でないurlが必要です")
+        if feed["url"] in urls:
+            raise ValueError(f"フィードURLが重複しています: {feed['url']}")
+        urls.add(feed["url"])
+    return data
+
+
+def _load_status(directory: Path) -> dict:
+    path = directory / "status.yaml"
+    if not path.exists():
+        return {"feeds": {}}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("feeds"), dict):
+        raise ValueError("status.yamlのfeedsにはURLをキーとするマッピングが必要です")
+    if any(not isinstance(value, dict) for value in data["feeds"].values()):
+        raise ValueError("status.yamlの各フィードの状態にはマッピングが必要です")
+    return data
+
+
+def load_feeds(feed_dir: Path | None = None) -> dict:
+    """設定と状態をメモリ上で結合する。設定ファイルには書き込まない。"""
+    directory = feed_dir or get_obsidian_agent_dir()
+    path = directory / "feed.md"
+    match = _YAML_BLOCK_PATTERN.search(path.read_text(encoding="utf-8"))
     if not match:
         raise ValueError(f"YAMLコードブロックが見つかりません: {path}")
-    return yaml.safe_load(match.group(1))
+    data = validate_feeds(yaml.safe_load(match.group(1)))
+    status = _load_status(directory)
+    for feed in data["feeds"]:
+        state = status["feeds"].get(feed["url"], {})
+        if "last_fetched" in state:
+            feed["last_fetched"] = state["last_fetched"]
+    return data
 
 
-def save_feeds(data: dict, feed_md: Path | None = None):
-    path = feed_md or get_feed_md()
-    yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
-    yaml_content = re.sub(r": null\n", ":\n", yaml_content)
-    if not yaml_content.endswith("\n"):
-        yaml_content += "\n"
-    path.write_text(f"```yaml\n{yaml_content}```\n", encoding="utf-8")
+def _dump_yaml(data: dict) -> str:
+    return yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+
+
+def save_status(data: dict, feed_dir: Path | None = None) -> None:
+    """取得時刻だけを保存する。一時ファイルの置換で書き込み途中の破損を防ぐ。"""
+    validate_feeds(data)
+    directory = feed_dir or get_obsidian_agent_dir()
+    status = _load_status(directory)
+    for feed in data["feeds"]:
+        if "last_fetched" in feed:
+            status["feeds"].setdefault(feed["url"], {})["last_fetched"] = feed["last_fetched"]
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(_dump_yaml(status))
+        os.replace(temporary, directory / "status.yaml")
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def parse_last_fetched(feed_info: dict) -> datetime | None:

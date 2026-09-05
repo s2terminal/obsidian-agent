@@ -1,110 +1,74 @@
 import pytest
 import yaml
 
-from reader.feed import (
-    feed_id,
-    feed_importance,
-    load_feeds,
-    normalize_importance,
-    parse_last_fetched,
-    save_feeds,
-)
-
-_YAML_BLOCK_TEMPLATE = "```yaml\n{yaml_content}```\n"
+from reader.config import get_obsidian_agent_dir
+from reader.feed import feed_id, feed_importance, load_feeds, normalize_importance, parse_last_fetched, save_status
 
 
-def _make_feed_md(tmp_path, name, data):
-    feed_md = tmp_path / name
-    yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
-    feed_md.write_text(_YAML_BLOCK_TEMPLATE.format(yaml_content=yaml_content), encoding="utf-8")
-    return feed_md
+def write_config(directory, feeds):
+    path = directory / "feed.md"
+    path.write_text("# 購読設定\n\n```yaml\n# 人間のコメント\n" + yaml.safe_dump({"feeds": feeds}, allow_unicode=True) + "```\n\n自由なメモ\n")
+    return path
 
 
-class TestFeedId:
-    def test_returns_id_key(self):
-        assert feed_id({"myblog": None, "url": "https://example.com", "title": "Blog"}) == "myblog"
-
-    def test_returns_none_when_no_id(self):
-        assert feed_id({"url": "https://example.com", "title": "Blog"}) is None
-
-    def test_roundtrip_via_yaml(self, tmp_path):
-        data = {"feeds": [{"myblog": None, "url": "https://example.com", "title": "Blog"}]}
-        feed_md = tmp_path / "feed.md"
-        save_feeds(data, feed_md)
-        loaded = load_feeds(feed_md)
-        assert feed_id(loaded["feeds"][0]) == "myblog"
-
-    def test_null_saved_as_empty_value(self, tmp_path):
-        data = {"feeds": [{"myblog": None, "url": "https://example.com"}]}
-        feed_md = tmp_path / "feed.md"
-        save_feeds(data, feed_md)
-        content = feed_md.read_text()
-        assert "myblog:\n" in content
-        assert "null" not in content
+def test_missing_status_and_environment(tmp_path, monkeypatch):
+    write_config(tmp_path, [{"url": "a", "myblog": None, "importance": "low"}])
+    monkeypatch.setenv("OBSIDIAN_ROOT", str(tmp_path.parent))
+    monkeypatch.setenv("OBSIDIAN_AGENT_DIR", tmp_path.name)
+    assert get_obsidian_agent_dir() == tmp_path
+    feed = load_feeds()["feeds"][0]
+    assert "last_fetched" not in feed
+    assert feed_id(feed) == "myblog"
+    assert not (tmp_path / "status.yaml").exists()
 
 
-class TestLoadFeeds:
-    def test_load(self, tmp_path):
-        data = {"feeds": [{"url": "https://example.com/rss", "max_articles": 3}]}
-        feed_md = _make_feed_md(tmp_path, "feed.md", data)
-
-        result = load_feeds(feed_md)
-        assert result == data
-
-    def test_roundtrip(self, tmp_path):
-        feed_md = tmp_path / "feed.md"
-        data = {
-            "feeds": [
-                {"url": "https://example.com/rss", "max_articles": 5, "title": "表示名"},
-                {"url": "https://other.com/atom", "last_fetched": "2026-03-30T00:00:00+00:00"},
-            ]
-        }
-        save_feeds(data, feed_md)
-        assert load_feeds(feed_md) == data
-
-    def test_crlf_line_endings(self, tmp_path):
-        data = {"feeds": [{"url": "https://example.com/rss"}]}
-        yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True)
-        crlf_content = f"```yaml\r\n{yaml_content.replace(chr(10), chr(13) + chr(10))}```\r\n"
-        feed_md = tmp_path / "feed.md"
-        feed_md.write_bytes(crlf_content.encode("utf-8"))
-
-        result = load_feeds(feed_md)
-        assert result == data
-
-    def test_no_trailing_newline_before_fence(self, tmp_path):
-        """手編集でYAMLコンテンツの末尾改行が欠けても読み込めることを確認"""
-        feed_md = tmp_path / "feed.md"
-        feed_md.write_text("```yaml\nfeeds: []```\n", encoding="utf-8")
-        result = load_feeds(feed_md)
-        assert result == {"feeds": []}
-
-    def test_no_yaml_block_raises(self, tmp_path):
-        feed_md = tmp_path / "feed.md"
-        feed_md.write_text("# No YAML here\n", encoding="utf-8")
-        with pytest.raises(ValueError, match="YAMLコードブロックが見つかりません"):
-            load_feeds(feed_md)
+def test_save_preserves_concurrent_config_edit_and_other_status(tmp_path):
+    path = write_config(tmp_path, [{"url": "a"}, {"url": "b"}])
+    save_status({"feeds": [{"url": "b", "last_fetched": "old"}]}, tmp_path)
+    loaded = load_feeds(tmp_path)
+    loaded["feeds"][0]["last_fetched"] = "new"
+    write_config(tmp_path, [{"url": "b", "title": "変更"}, {"url": "a", "active": False}])
+    original = path.read_bytes()
+    save_status({"feeds": [loaded["feeds"][0]]}, tmp_path)
+    assert path.read_bytes() == original
+    assert load_feeds(tmp_path)["feeds"] == [
+        {"url": "b", "title": "変更", "last_fetched": "old"},
+        {"url": "a", "active": False, "last_fetched": "new"},
+    ]
+    assert yaml.safe_load((tmp_path / "status.yaml").read_text()) == {
+        "feeds": {"b": {"last_fetched": "old"}, "a": {"last_fetched": "new"}}
+    }
 
 
-class TestSaveFeeds:
-    def test_creates_file(self, tmp_path):
-        feed_md = tmp_path / "new_feed.md"
-        save_feeds({"feeds": []}, feed_md)
-        assert feed_md.exists()
+def test_changed_url_does_not_inherit_status(tmp_path):
+    write_config(tmp_path, [{"url": "new"}])
+    save_status({"feeds": [{"url": "old", "last_fetched": "old"}]}, tmp_path)
+    assert load_feeds(tmp_path) == {"feeds": [{"url": "new"}]}
 
-    def test_save_unicode(self, tmp_path):
-        feed_md = tmp_path / "feed.md"
-        data = {"feeds": [{"url": "https://example.com", "title": "日本語フィード"}]}
-        save_feeds(data, feed_md)
-        content = feed_md.read_text(encoding="utf-8")
-        assert "日本語フィード" in content
 
-    def test_saves_markdown_yaml_block(self, tmp_path):
-        feed_md = tmp_path / "feed.md"
-        save_feeds({"feeds": []}, feed_md)
-        content = feed_md.read_text(encoding="utf-8")
-        assert content.startswith("```yaml\n")
-        assert content.endswith("```\n")
+@pytest.mark.parametrize("feeds", [[{"url": "a", "last_fetched": None}], [{"url": "a"}, {"url": "a"}], [{}]])
+def test_invalid_config(tmp_path, feeds):
+    write_config(tmp_path, feeds)
+    with pytest.raises(ValueError):
+        load_feeds(tmp_path)
+
+
+def test_corrupt_status_is_not_overwritten(tmp_path):
+    write_config(tmp_path, [{"url": "a"}])
+    path = tmp_path / "status.yaml"
+    path.write_text("feeds: []\n")
+    with pytest.raises(ValueError):
+        save_status({"feeds": [{"url": "a", "last_fetched": "new"}]}, tmp_path)
+    assert path.read_text() == "feeds: []\n"
+
+
+def test_legacy_environment_rejects_file(tmp_path, monkeypatch):
+    source = tmp_path / "feed.md"
+    source.touch()
+    monkeypatch.setenv("OBSIDIAN_ROOT", str(tmp_path))
+    monkeypatch.setenv("OBSIDIAN_AGENT_DIR", source.name)
+    with pytest.raises(ValueError, match="ディレクトリ"):
+        load_feeds()
 
 
 class TestImportance:
@@ -125,14 +89,6 @@ class TestImportance:
     def test_non_string_falls_back_to_default(self):
         assert normalize_importance(123) == "normal"
         assert normalize_importance(None) == "normal"
-
-    def test_roundtrip_via_yaml(self, tmp_path):
-        data = {"feeds": [{"url": "https://example.com/rss", "importance": "low"}]}
-        feed_md = tmp_path / "feed.md"
-        save_feeds(data, feed_md)
-        loaded = load_feeds(feed_md)
-        assert feed_importance(loaded["feeds"][0]) == "low"
-
 
 class TestParseLastFetched:
     def test_iso_with_timezone(self):
@@ -158,3 +114,55 @@ class TestParseLastFetched:
 
     def test_invalid_format_returns_none(self):
         assert parse_last_fetched({"last_fetched": "not-a-date"}) is None
+
+
+def test_failed_atomic_replace_preserves_status(tmp_path, monkeypatch):
+    import reader.feed as feed_module
+
+    save_status({"feeds": [{"url": "a", "last_fetched": "old"}]}, tmp_path)
+    original = (tmp_path / "status.yaml").read_bytes()
+
+    def fail_replace(*args):
+        raise OSError("置換失敗")
+
+    monkeypatch.setattr(feed_module.os, "replace", fail_replace)
+    with pytest.raises(OSError):
+        save_status({"feeds": [{"url": "a", "last_fetched": "new"}]}, tmp_path)
+    assert (tmp_path / "status.yaml").read_bytes() == original
+    assert list(tmp_path.iterdir()) == [tmp_path / "status.yaml"]
+
+
+def test_feed_dir_is_relative_to_vault_not_working_directory(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"
+    directory = vault / "settings" / "feed"
+    directory.mkdir(parents=True)
+    write_config(directory, [{"url": "a"}])
+    monkeypatch.setenv("OBSIDIAN_ROOT", str(vault))
+    monkeypatch.setenv("OBSIDIAN_AGENT_DIR", "settings/feed")
+    monkeypatch.chdir(tmp_path)
+    assert get_obsidian_agent_dir() == directory
+    assert load_feeds() == {"feeds": [{"url": "a"}]}
+    save_status({"feeds": [{"url": "a", "last_fetched": "new"}]})
+    assert (directory / "status.yaml").exists()
+
+
+def test_feed_dir_rejects_absolute_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("OBSIDIAN_AGENT_DIR", str(tmp_path))
+    with pytest.raises(ValueError, match="相対パス"):
+        get_obsidian_agent_dir()
+
+
+@pytest.mark.parametrize("content", [
+    "# 購読設定\n```yaml\nfeeds: []\n```\nメモ\n",
+    "```yaml\r\nfeeds: []\r\n```\r\n",
+    "```yaml\nfeeds: []```\n",
+])
+def test_markdown_yaml_block_formats(tmp_path, content):
+    (tmp_path / "feed.md").write_bytes(content.encode("utf-8"))
+    assert load_feeds(tmp_path) == {"feeds": []}
+
+
+def test_missing_yaml_block(tmp_path):
+    (tmp_path / "feed.md").write_text("# フィード設定\n")
+    with pytest.raises(ValueError, match="YAMLコードブロック"):
+        load_feeds(tmp_path)

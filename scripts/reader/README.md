@@ -25,43 +25,43 @@ podman compose run --rm app python main.py reader --summarize-only
 
 ## ファイル構成
 
-```
-scripts/reader/
-├── main.py      # メインスクリプト
-├── .cache/      # 記事キャッシュ（gitignore済み）
-└── README.md    # このファイル
-```
+- `scripts/reader/main.py`: フィード取得と要約の実行処理。
+- `scripts/reader/.cache/`: 要約失敗記事のキャッシュ（gitignore済み）。
+- `ai-generated/feed/{yyyy}/{mm-dd}.md`: 実行日ごとの要約出力。
 
-出力先:
+## フィード設定と実行状態
 
-```
-ai-generated/feed/
-└── {yyyy}/
-    └── {mm-dd}.md   # スクリプト実行日ごとのファイル
+環境変数 `OBSIDIAN_AGENT_DIR` は、`OBSIDIAN_ROOT` からの相対パスでディレクトリを指定します。
+
+```dotenv
+OBSIDIAN_ROOT=/path/to/obsidian/Vault
+OBSIDIAN_AGENT_DIR=obsidian_agent
 ```
 
-## feed.md
+### feed.md（人間が編集する設定）
 
-購読するRSSフィードを管理するMarkdownファイル。YAMLコードブロック内にフィード情報を記述する。
+この例では `/path/to/obsidian/Vault/obsidian_agent/feed.md` にMarkdownとして保存し、最初の `yaml` コードブロックから設定を読み込みます。
+
+````markdown
+# 購読フィード
 
 ```yaml
 feeds:
 - url: https://example.com/feed.xml
   title: 表示用のフィード名
-  last_fetched: null
+  active: true
 - url: https://example.com/rss
   max_articles: 10
   importance: low
-  last_fetched: null
 ```
+````
 
-| フィールド | 説明 |
-|---|---|
-| `url` | RSSフィードのURL |
-| `title` | 要約記事で表示する任意のフィード名。設定時はRSS本体のタイトルより優先される |
-| `last_fetched` | 最終取得時刻（ISO 8601）。通常実行時のみスクリプトが自動更新する |
-| `max_articles` | フィードごとの最大要約件数（省略時: 5） |
-| `importance` | フィードの重要度。要約の詳しさを制御する（省略時: `normal`） |
+- `url`: フィードURL。必須、ファイル内で一意
+- `title`: 任意の表示名。RSS本体のタイトルより優先します。
+- `active`: `false` のフィードは処理しません。
+- `max_articles`: 最大要約件数。省略時は通常5件、取得時刻のない新規フィードは1件。
+- `importance`: 要約の詳しさ。省略時は `normal` 。
+- `type`: `markdown` を指定するとMarkdown形式として取得。URL末尾が `.md` または `.md.txt` の場合も自動判定。
 
 ### importance（重要度）による要約の出し分け
 
@@ -80,16 +80,16 @@ feeds:
 `main.py reader --summarize-only` を付けると、要約を生成して標準出力へ流します。
 
 - 要約ファイルは保存しない
-- `feed.md` の `last_fetched` は更新しない
+- `status.yaml` の `last_fetched` は更新しない
 - Slack通知は送らない
 
 ## 処理フロー
 
-1. `feed.md` に記載のあるフィードを取得
+1. `feed.md` の設定と `status.yaml` の取得時刻を読み、フィードを取得
 2. キャッシュと照合し、未処理の記事を特定
 3. Google ADK (Gemini) で記事を日本語の箇条書きに要約
 4. `ai-generated/feed/yyyy/mm-dd.md` に結果を書き出し
-5. 書き出し成功後に `feed.md` の `last_fetched` を更新
+5. 書き出し成功後に `status.yaml` の `last_fetched` を更新
 
 ## キャッシュの仕組み
 

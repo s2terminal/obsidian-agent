@@ -4,6 +4,9 @@ Obsidianのノートに対してAIエージェントで操作を行うツール�
 
 .envを設定して、`mise run`で実行。
 
+`OBSIDIAN_AGENT_DIR` には `feed.md` を置くディレクトリを `OBSIDIAN_ROOT` からの相対パスで指定。
+設定は `obsidian_agent/feed.md`。
+
 ## ホストでmiseを使う
 
 miseをインストールしたホストでは、コンテナを使わずに実行できます。

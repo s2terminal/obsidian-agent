@@ -7,15 +7,11 @@ services:
     env_file:
       - .env
     environment:
-      FEED_MD: /data/feed.md
       OBSIDIAN_ROOT: /vault
     volumes:
       - type: bind
         source: .
         target: /app
-      - type: bind
-        source: ${FEED_MD}
-        target: /data/feed.md
       - type: bind
         source: ${OBSIDIAN_ROOT}
         target: /vault
