@@ -15,7 +15,7 @@ from common.config import get_ai_generated_dir, get_obsidian_root
 from common.notifier import notify_slack
 from common.obsidian import build_obsidian_open_url, make_safe_slug
 
-MINI_MODEL = "gemini-3.6-flash-lite"
+MINI_MODEL = "gemini-3.7-flash"
 RESEARCH_AGENT = "deep-research-pro-preview-12-2025"
 POLL_INTERVAL_SECONDS = 10
 OUTPUT_SUBDIR = "research"

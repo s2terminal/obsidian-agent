@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-Models = Literal["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.6-flash", "gemini-3.6-flash-lite"]
-DEFAULT_MODEL = "gemini-3.6-flash"
+Models = Literal["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.7-flash"]
+DEFAULT_MODEL = "gemini-3.7-flash"
 
 
 def safe_getenv(key: str) -> str:
