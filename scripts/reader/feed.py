@@ -1,12 +1,12 @@
-import os
 import re
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
 from reader.config import get_obsidian_agent_dir
+from reader.sources import source_type, raindrop_url
+from reader.state import load_state, save_state
 
 
 _YAML_BLOCK_PATTERN = re.compile(r"```yaml\r?\n(.*?)\r?\n?```", re.DOTALL)
@@ -46,21 +46,13 @@ def validate_feeds(data: object) -> dict:
     for feed in data["feeds"]:
         if not isinstance(feed, dict) or not isinstance(feed.get("url"), str) or not feed["url"].strip():
             raise ValueError("各フィードには空でないurlが必要です")
+        if source_type(feed) == "raindrop":
+            feed["url"] = raindrop_url(feed["url"])[0]
+            if "max_articles" in feed and (type(feed["max_articles"]) is not int or feed["max_articles"] < 1):
+                raise ValueError("max_articlesには正の整数が必要です")
         if feed["url"] in urls:
             raise ValueError(f"フィードURLが重複しています: {feed['url']}")
         urls.add(feed["url"])
-    return data
-
-
-def _load_status(directory: Path) -> dict:
-    path = directory / "status.yaml"
-    if not path.exists():
-        return {"feeds": {}}
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or not isinstance(data.get("feeds"), dict):
-        raise ValueError("status.yamlのfeedsにはURLをキーとするマッピングが必要です")
-    if any(not isinstance(value, dict) for value in data["feeds"].values()):
-        raise ValueError("status.yamlの各フィードの状態にはマッピングが必要です")
     return data
 
 
@@ -72,35 +64,26 @@ def load_feeds(feed_dir: Path | None = None) -> dict:
     if not match:
         raise ValueError(f"YAMLコードブロックが見つかりません: {path}")
     data = validate_feeds(yaml.safe_load(match.group(1)))
-    status = _load_status(directory)
+    status = load_state(directory)
     for feed in data["feeds"]:
-        state = status["feeds"].get(feed["url"], {})
+        namespace = "raindrop" if source_type(feed) == "raindrop" else "feeds"
+        state = status[namespace].get(feed["url"], {})
+        if namespace == "raindrop":
+            feed["_state"] = state
         if "last_fetched" in state:
             feed["last_fetched"] = state["last_fetched"]
     return data
-
-
-def _dump_yaml(data: dict) -> str:
-    return yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
 
 
 def save_status(data: dict, feed_dir: Path | None = None) -> None:
     """取得時刻だけを保存する。一時ファイルの置換で書き込み途中の破損を防ぐ。"""
     validate_feeds(data)
     directory = feed_dir or get_obsidian_agent_dir()
-    status = _load_status(directory)
+    status = load_state(directory)
     for feed in data["feeds"]:
         if "last_fetched" in feed:
             status["feeds"].setdefault(feed["url"], {})["last_fetched"] = feed["last_fetched"]
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory, delete=False) as stream:
-            temporary = Path(stream.name)
-            stream.write(_dump_yaml(status))
-        os.replace(temporary, directory / "status.yaml")
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+    save_state(directory, status)
 
 
 def parse_last_fetched(feed_info: dict) -> datetime | None:

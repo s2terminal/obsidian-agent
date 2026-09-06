@@ -1,6 +1,6 @@
 from time import struct_time
 
-from reader.md_feed_parser import is_markdown_feed, parse_md_feed
+from reader.sources.markdown import is_markdown_feed, parse_md_feed
 
 URL = "https://example.com/release-notes.md.txt"
 

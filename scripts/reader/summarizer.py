@@ -92,12 +92,20 @@ def _normalize_summary_format(value: object) -> SummaryFormat | None:
 
 def _summary_writer_instruction(context: ReadonlyContext) -> str:
     summary_format = _normalize_summary_format(context.state.get("summary_format"))
+    excerpt_only = context.state.get("content_kind") == "excerpt"
     common_instruction = (
         "あなたは記事要約アシスタントです。"
         "すべての内容は日本語で出力してください。"
         "5W1Hをできるだけ明確にしてください。"
         "誤『新機能をリリース』→正『x月x日、GitHubが新機能をリリース』"
     )
+
+    if excerpt_only:
+        common_instruction = (
+            "あなたは抜粋要約アシスタントです。日本語で出力してください。"
+            "与えられた抜粋の範囲だけを要約し、情報を補わないでください。"
+            "5W1Hなど抜粋にない情報を推測せず、記事全体を読んだように書かないでください。"
+        )
 
     if summary_format == "single_sentence":
         return (
@@ -179,7 +187,7 @@ summarizer_agent = SequentialAgent(
 
 @observe(as_type="generation", capture_input=False, capture_output=False)
 async def summarize(
-    runner: InMemoryRunner, title: str, content: str, *, importance: str = "normal"
+    runner: InMemoryRunner, title: str, content: str, *, importance: str = "normal", content_kind: str = "body"
 ) -> str:
     message = (
         f"以下の記事を日本語で要約してください。\n\n"
@@ -197,6 +205,7 @@ async def summarize(
     # 重要度で要約形式が強制される場合は、判定LLMをスキップするための state を渡す
     forced = forced_summary_format(importance)
     initial_state = {FORCE_SUMMARY_FORMAT_KEY: forced} if forced else {}
+    initial_state["content_kind"] = content_kind
     session = await runner.session_service.create_session(
         app_name=APP_NAME, user_id=USER_ID, state=initial_state
     )

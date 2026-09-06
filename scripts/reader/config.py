@@ -24,6 +24,7 @@ __all__ = [
     "MAX_ARTICLES_NEW",
     "get_obsidian_agent_dir",
     "get_feed_out_dir",
+    "get_raindrop_access_token",
 ]
 
 SCRIPT_DIR = Path(__file__).parent
@@ -47,3 +48,10 @@ def get_obsidian_agent_dir() -> Path:
 
 def get_feed_out_dir() -> Path:
     return get_ai_generated_dir("feed")
+
+
+def get_raindrop_access_token() -> str:
+    token = safe_getenv('RAINDROP_ACCESS_TOKEN').strip()
+    if not token or '\r' in token or '\n' in token:
+        raise ValueError('RAINDROP_ACCESS_TOKENが未設定または不正です')
+    return token

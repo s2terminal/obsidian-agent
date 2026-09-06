@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 from reader.config import get_feed_out_dir, get_timezone
+from reader.state import atomic_write
 
 
 def render_news(new_articles: list[dict]) -> str:
@@ -19,7 +20,10 @@ def render_news(new_articles: list[dict]) -> str:
             lines.append(f"### [{feed_title}]({feed_link})\n")
             for article in articles:
                 lines.append(f"#### [{article['title']}]({article['link']})\n")
-                lines.append(f"{article['summary']}\n")
+                if article.get("summary"):
+                    if article.get("content_kind") == "excerpt":
+                        lines.append("抜粋の要約:\n")
+                    lines.append(f"{article['summary']}\n")
 
     return "\n".join(lines).rstrip("\n") + "\n" if lines else ""
 
@@ -35,8 +39,8 @@ def write_news(new_articles: list[dict], feed_out_dir: Path | None = None):
     rendered = render_news(new_articles)
 
     if existing:
-        md_path.write_text(existing.rstrip("\n") + "\n\n" + rendered, encoding="utf-8")
+        atomic_write(md_path, existing.rstrip("\n") + "\n\n" + rendered)
     else:
-        md_path.write_text(rendered, encoding="utf-8")
+        atomic_write(md_path, rendered)
 
     return md_path

@@ -63,3 +63,34 @@ def entry_published_date(entry) -> str:
             dt = datetime.fromtimestamp(mktime(t), tz=timezone.utc)
             return dt.strftime("%Y/%m/%d")
     return datetime.now(timezone.utc).strftime("%Y/%m/%d （スクリプト実行日）")
+
+
+import feedparser
+from reader.models import SourceArticle, FetchResult, SourceFetchError
+
+
+def resolve_title(source: dict, fallback: str) -> str:
+    title = source.get("title")
+    return str(title).strip() if title and str(title).strip() else fallback
+
+
+def to_article(entry, url: str, source_type="rss") -> SourceArticle:
+    return SourceArticle(
+        id=entry_id(entry), source_key=url, source_type=source_type,
+        title=entry.get("title", "No Title"), link=entry.get("link", ""),
+        content=entry_content(entry), content_kind="body",
+        published_at=entry_published_datetime(entry), saved_at=None,
+        display_date=entry_published_date(entry),
+    )
+
+
+def fetch(source: dict) -> FetchResult:
+    url = source["url"]
+    feed = feedparser.parse(url)
+    if feed.bozo and not feed.entries:
+        raise SourceFetchError("RSSフィードの取得に失敗")
+    return FetchResult(
+        [to_article(entry, url) for entry in feed.entries],
+        resolve_title(source, getattr(feed.feed, "title", url) or url),
+        getattr(feed.feed, "link", url) or url,
+    )

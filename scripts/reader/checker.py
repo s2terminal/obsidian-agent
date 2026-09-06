@@ -1,4 +1,5 @@
 from reader.feed import feed_id, load_feeds
+from reader.sources import source_type, raindrop_url
 
 
 def check():
@@ -15,6 +16,11 @@ def check():
         importance = feed.get("importance", "(デフォルト)")
         status = "[active]" if active else " [無効]"
         print(f"\n[{i}] {fid} {status}")
+        print(f"    type         : {source_type(feed)}")
+        if source_type(feed) == "raindrop":
+            pending = sum(item.get("status") != "done" for item in feed.get("_state", {}).get("items", {}).values())
+            print(f"    collection   : {raindrop_url(url)[1]}")
+            print(f"    pending      : {pending}")
         print(f"    title        : {title}")
         print(f"    url          : {url}")
         print(f"    last_fetched : {last_fetched}")

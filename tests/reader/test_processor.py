@@ -40,7 +40,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_new_articles(self, mock_parse, mock_summarize):
         mock_parse.return_value = self._make_feed_result([
             self._make_entry("e1", "Article 1"),
@@ -62,7 +62,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_retries_pending(self, mock_parse, mock_summarize):
         from reader.cache import save_cache
         save_cache("https://example.com/feed", {
@@ -89,7 +89,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_respects_max_articles(self, mock_parse, mock_summarize):
         entries = [self._make_entry(f"e{i}", f"Article {i}") for i in range(10)]
         mock_parse.return_value = self._make_feed_result(entries)
@@ -104,7 +104,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_summarize_error_sets_pending(self, mock_parse, mock_summarize):
         mock_parse.return_value = self._make_feed_result([
             self._make_entry("e1", "Fail Article"),
@@ -124,7 +124,7 @@ class TestProcessFeed:
         assert "status" not in cache["e1"]
 
     @pytest.mark.asyncio
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_bozo_feed_with_no_entries(self, mock_parse):
         feed = self._make_feed_result([], bozo=True)
         mock_parse.return_value = feed
@@ -133,11 +133,13 @@ class TestProcessFeed:
         runner = MagicMock()
         articles, errors = await process_feed(runner, {"url": "https://example.com/broken"})
 
+        # RSS の一時的な取得失敗は通知しない（既存挙動を維持）
         assert articles == []
+        assert errors == []
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_skips_old_articles_by_last_fetched(self, mock_parse, mock_summarize):
         """last_fetched より古い記事はスキップされる。"""
         from time import struct_time
@@ -164,7 +166,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_no_last_fetched_limits_to_one(self, mock_parse, mock_summarize):
         """last_fetched が設定されていない（新規追加）場合は最新1件のみ処理する。"""
         from time import struct_time
@@ -189,7 +191,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_prefers_title_from_feed_md_when_present(self, mock_parse, mock_summarize):
         mock_parse.return_value = self._make_feed_result(
             [self._make_entry("e1", "Article 1")],
@@ -209,7 +211,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_blank_title_in_feed_md_falls_back_to_feed_title(self, mock_parse, mock_summarize):
         mock_parse.return_value = self._make_feed_result(
             [self._make_entry("e1", "Article 1")],
@@ -229,7 +231,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_pending_retried_even_if_older_than_last_fetched(self, mock_parse, mock_summarize):
         """キャッシュに存在する記事は last_fetched より古くてもリトライされる。"""
         from reader.cache import save_cache
@@ -261,7 +263,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_passes_importance_to_summarize(self, mock_parse, mock_summarize):
         """feed_info の importance が summarize に渡される。"""
         mock_parse.return_value = self._make_feed_result([self._make_entry("e1", "Article 1")])
@@ -275,7 +277,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_defaults_importance_to_normal(self, mock_parse, mock_summarize):
         """importance 未設定なら normal が summarize に渡される。"""
         mock_parse.return_value = self._make_feed_result([self._make_entry("e1", "Article 1")])
@@ -289,7 +291,7 @@ class TestProcessFeed:
 
     @pytest.mark.asyncio
     @patch("reader.main.summarize", new_callable=AsyncMock)
-    @patch("reader.main.feedparser.parse")
+    @patch("reader.sources.rss.feedparser.parse")
     async def test_articles_without_date_not_skipped(self, mock_parse, mock_summarize):
         """投稿日が無い記事は last_fetched があってもスキップされない。"""
         entry = self._make_entry("e1", "No Date Article")

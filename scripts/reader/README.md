@@ -1,6 +1,6 @@
-# RSS Reader & Summarizer
+# Reader & Summarizer
 
-RSSフィードから最新記事を取得し、Google ADK (Gemini) で日本語要約を生成するスクリプト。
+RSS / Markdown / Raindrop から最新記事を取得し、Google ADK (Gemini) で日本語要約を生成するスクリプト。
 
 ## 実行方法
 
@@ -56,7 +56,7 @@ feeds:
 ```
 ````
 
-- `url`: フィードURL。必須、ファイル内で一意
+- `url`: フィードまたは Raindrop コレクションの URL。必須、ファイル内で一意
 - `title`: 任意の表示名。RSS本体のタイトルより優先します。
 - `active`: `false` のフィードは処理しません。
 - `max_articles`: 最大要約件数。省略時は通常5件、取得時刻のない新規フィードは1件。
@@ -82,6 +82,7 @@ feeds:
 - 要約ファイルは保存しない
 - `status.yaml` の `last_fetched` は更新しない
 - Slack通知は送らない
+- RSS のキャッシュと Raindrop の記事状態も変更しない
 
 ## 処理フロー
 
@@ -89,21 +90,32 @@ feeds:
 2. キャッシュと照合し、未処理の記事を特定
 3. Google ADK (Gemini) で記事を日本語の箇条書きに要約
 4. `ai-generated/feed/yyyy/mm-dd.md` に結果を書き出し
-5. 書き出し成功後に `status.yaml` の `last_fetched` を更新
+5. RSS / Markdown は書き出し成功後に `last_fetched` を更新。Raindrop は取得位置と記事を要約前に保存し、出力後に完了状態を保存
 
 ## キャッシュの仕組み
 
 `.cache/` ディレクトリに、フィードURLのSHA-256ハッシュをファイル名としたJSONを保存する。
 
-各記事エントリは以下のステータスを持つ:
+RSS / Markdown のキャッシュは要約失敗記事だけを保存する。
+Raindrop は `status.yaml` の `raindrop` に、URL ごとの取得位置（`last_fetched` / `boundary_ids`）と
+記事（`items`）を保存する。
 
-| ステータス | 意味 | 次回実行時の挙動 |
-|---|---|---|
-| `done` | fetch・要約ともに成功 | スキップ |
-| `pending` | fetchは成功したが要約に失敗 | キャッシュからコンテンツを復元し、要約のみリトライ |
+## Raindrop の設定
 
-- `pending` エントリには `title`, `link`, `content`, `published` が保存されるため、再fetchは不要
-- `done` エントリにはステータスのみ保存（コンテンツは破棄）
+個人用 Test token を `.env` の `RAINDROP_ACCESS_TOKEN` に設定し、既存の `feed.md` に URL を追加する。
+トークンは [Raindrop のアプリ設定](https://app.raindrop.io/settings/integrations)で発行する。
+`type` は URL から自動判定するため不要。
+
+```yaml
+feeds:
+  - 後で読む:
+    active: true
+    url: https://app.raindrop.io/my/12345678
+    title: Raindrop の後で読む
+    importance: normal
+```
+
+- URL の ID は自分のコレクションに置き換える。全体は `/my/0`、未分類は `/my/-1`。
 
 ## 出力フォーマット
 

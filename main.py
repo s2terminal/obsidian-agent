@@ -29,7 +29,7 @@ def reader(
         ),
     ] = False,
 ):
-    """RSS reader を実行します。"""
+    """RSS / Markdown / Raindrop を取得・要約します。"""
     if ctx.invoked_subcommand is not None:
         return
     from reader.main import run as run_reader_main
@@ -38,7 +38,7 @@ def reader(
 
 @reader_app.command("check")
 def reader_check() -> None:
-    """フィード設定を読み込んで内容を表示します。"""
+    """ソース設定と取得位置・未処理件数を表示します。"""
     from reader.checker import check
     check()
 

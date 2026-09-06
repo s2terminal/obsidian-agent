@@ -133,7 +133,7 @@ class TestMain:
 
         notify_slack.assert_called_once()
         sent_message = notify_slack.call_args[0][0]
-        assert ":warning: フォーマットエラー:" in sent_message
+        assert ":warning: 取得・処理エラー:" in sent_message
         assert error_msg in sent_message
 
     @pytest.mark.asyncio
@@ -171,7 +171,7 @@ class TestMain:
         notify_slack.assert_called_once()
         sent_message = notify_slack.call_args[0][0]
         assert "1件の記事を追加しました" in sent_message
-        assert ":warning: フォーマットエラー:" in sent_message
+        assert ":warning: 取得・処理エラー:" in sent_message
         assert error_msg in sent_message
 
 
@@ -203,3 +203,9 @@ async def test_real_storage_updates_only_successful_feed(tmp_path, monkeypatch, 
         assert set(status["feeds"]) == {"a"}
         assert main_module.parse_last_fetched(status["feeds"]["a"]) is not None
     assert config.read_bytes() == original
+
+
+@pytest.fixture(autouse=True)
+def isolated_lock_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv("OBSIDIAN_ROOT", str(tmp_path.parent))
+    monkeypatch.setenv("OBSIDIAN_AGENT_DIR", tmp_path.name)

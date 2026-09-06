@@ -79,3 +79,18 @@ def fetch_md_feed(url: str) -> list[dict]:
     with urllib.request.urlopen(req, timeout=30) as resp:
         text = resp.read().decode("utf-8")
     return parse_md_feed(url, text)
+
+
+from reader.models import FetchResult, SourceFetchError
+from reader.sources.rss import resolve_title, to_article
+
+
+def fetch(source: dict) -> FetchResult:
+    url = source["url"]
+    try:
+        entries = fetch_md_feed(url)
+    except Exception as exc:
+        raise SourceFetchError(f"Markdownフィードの取得に失敗: {url}") from exc
+    if not entries:
+        raise SourceFetchError(f"日付セクションが見つかりません（フォーマット不正の可能性）: {url}")
+    return FetchResult([to_article(e, url, "markdown") for e in entries], resolve_title(source, url), url)

@@ -36,7 +36,8 @@ def test_save_preserves_concurrent_config_edit_and_other_status(tmp_path):
         {"url": "a", "active": False, "last_fetched": "new"},
     ]
     assert yaml.safe_load((tmp_path / "status.yaml").read_text()) == {
-        "feeds": {"b": {"last_fetched": "old"}, "a": {"last_fetched": "new"}}
+        "feeds": {"b": {"last_fetched": "old"}, "a": {"last_fetched": "new"}},
+        "raindrop": {}
     }
 
 
@@ -46,20 +47,27 @@ def test_changed_url_does_not_inherit_status(tmp_path):
     assert load_feeds(tmp_path) == {"feeds": [{"url": "new"}]}
 
 
-@pytest.mark.parametrize("feeds", [[{"url": "a", "last_fetched": None}], [{"url": "a"}, {"url": "a"}], [{}]])
+@pytest.mark.parametrize("feeds", [[{"url": "a"}, {"url": "a"}], [{}]])
 def test_invalid_config(tmp_path, feeds):
     write_config(tmp_path, feeds)
     with pytest.raises(ValueError):
         load_feeds(tmp_path)
 
 
-def test_corrupt_status_is_not_overwritten(tmp_path):
+def test_non_mapping_status_is_not_overwritten(tmp_path):
     write_config(tmp_path, [{"url": "a"}])
     path = tmp_path / "status.yaml"
-    path.write_text("feeds: []\n")
+    path.write_text("- just a list\n")
     with pytest.raises(ValueError):
         save_status({"feeds": [{"url": "a", "last_fetched": "new"}]}, tmp_path)
-    assert path.read_text() == "feeds: []\n"
+    assert path.read_text() == "- just a list\n"
+
+
+def test_malformed_namespace_is_treated_as_empty(tmp_path):
+    write_config(tmp_path, [{"url": "a"}])
+    (tmp_path / "status.yaml").write_text("feeds: []\n")
+    save_status({"feeds": [{"url": "a", "last_fetched": "new"}]}, tmp_path)
+    assert load_feeds(tmp_path)["feeds"][0]["last_fetched"] == "new"
 
 
 def test_legacy_environment_rejects_file(tmp_path, monkeypatch):
@@ -117,7 +125,7 @@ class TestParseLastFetched:
 
 
 def test_failed_atomic_replace_preserves_status(tmp_path, monkeypatch):
-    import reader.feed as feed_module
+    import reader.state as state_module
 
     save_status({"feeds": [{"url": "a", "last_fetched": "old"}]}, tmp_path)
     original = (tmp_path / "status.yaml").read_bytes()
@@ -125,7 +133,7 @@ def test_failed_atomic_replace_preserves_status(tmp_path, monkeypatch):
     def fail_replace(*args):
         raise OSError("置換失敗")
 
-    monkeypatch.setattr(feed_module.os, "replace", fail_replace)
+    monkeypatch.setattr(state_module.os, "replace", fail_replace)
     with pytest.raises(OSError):
         save_status({"feeds": [{"url": "a", "last_fetched": "new"}]}, tmp_path)
     assert (tmp_path / "status.yaml").read_bytes() == original

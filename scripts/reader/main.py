@@ -1,5 +1,5 @@
 """
-RSS Reader & Summarizer
+Reader & Summarizer
 
 フィードから最新記事を取得し、Google ADK (Gemini) で要約して出力する。
 """
@@ -7,58 +7,43 @@ RSS Reader & Summarizer
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import nullcontext
 
-import feedparser
+from reader.sources import rss, markdown, source_type
+from reader.models import SourceFetchError
 from google.adk.apps import App
 from google.adk.runners import InMemoryRunner
 
 from common.obsidian import build_obsidian_open_url
 from reader.cache import load_cache, save_cache
-from reader.config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir
+from reader.config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir, get_obsidian_agent_dir
 from reader.feed import feed_importance, load_feeds, parse_last_fetched, save_status
-from reader.md_feed_parser import fetch_md_feed, is_markdown_feed
 from reader.notifier import notify_slack
-from reader.parser import entry_content, entry_id, entry_published_date, entry_published_datetime
 from reader.summarizer import summarize, summarizer_agent
 from reader.writer import render_news, write_news
-
-
-def _resolve_feed_title(feed_info: dict, fallback_title: str) -> str:
-    configured_title = feed_info.get("title")
-    if isinstance(configured_title, str):
-        configured_title = configured_title.strip()
-    if configured_title:
-        return str(configured_title)
-    return fallback_title
+from reader.state import reader_lock
+from reader.sources.raindrop import UrllibJsonGetTransport
+from reader.raindrop_processor import process_raindrop, mark_output_done
 
 
 async def process_feed(
-    runner: InMemoryRunner, feed_info: dict
+    runner: InMemoryRunner, feed_info: dict, *, summarize_only: bool = False
 ) -> tuple[list[dict], list[str]]:
     url = feed_info["url"]
     print(f"フィード取得中: {url}")
 
-    if is_markdown_feed(feed_info):
-        try:
-            entries = fetch_md_feed(url)
-        except Exception as e:
-            msg = f"Markdownフィードの取得に失敗: {e} ({url})"
-            print(f"  エラー: {msg}")
-            return [], [msg]
-        if not entries:
-            msg = f"日付セクションが見つかりません（フォーマット不正の可能性）: {url}"
-            print(f"  エラー: {msg}")
-            return [], [msg]
-        feed_title = _resolve_feed_title(feed_info, url)
-        feed_link = url
-    else:
-        feed = feedparser.parse(url)
-        if feed.bozo and not feed.entries:
-            print("  エラー: フィードの取得に失敗")
-            return [], []
-        entries = feed.entries
-        feed_title = _resolve_feed_title(feed_info, getattr(feed.feed, "title", url) or url)
-        feed_link = getattr(feed.feed, "link", url) or url
+    is_markdown = source_type(feed_info) == "markdown"
+    try:
+        result = (markdown if is_markdown else rss).fetch(feed_info)
+    except SourceFetchError as exc:
+        # RSS の一時的な取得失敗は既存挙動どおりログのみ（通知しない）。
+        # Markdown はフォーマット不正を検知する目的なので従来どおり通知する。
+        if is_markdown:
+            return [], [str(exc)]
+        print(f"  取得失敗: {exc}: {url}")
+        return [], []
+    entries = result.articles
+    feed_title, feed_link = result.source_title, result.source_link
 
     cache = load_cache(url)
     importance = feed_importance(feed_info)
@@ -73,12 +58,12 @@ async def process_feed(
     max_articles = feed_info.get("max_articles", default_max)
 
     for entry in entries:
-        eid = entry_id(entry)
+        eid = entry.id
         cached_entry = cache.get(eid)
 
         # 新規記事は last_fetched より古ければスキップ
         if not cached_entry and last_fetched:
-            pub_dt = entry_published_datetime(entry)
+            pub_dt = entry.published_at
             if pub_dt and pub_dt <= last_fetched:
                 continue
 
@@ -94,10 +79,10 @@ async def process_feed(
             published = cached_entry.get("published", datetime.now(timezone.utc).strftime("%Y/%m/%d"))
             print(f"  要約リトライ タイトル: {title}")
         else:
-            title = entry.get("title", "No Title")
-            link = entry.get("link", "")
-            content = entry_content(entry)
-            published = entry_published_date(entry)
+            title = entry.title
+            link = entry.link
+            content = entry.content or ""
+            published = entry.display_date
 
         try:
             summary = await summarize(runner, str(title), content, importance=importance)
@@ -119,12 +104,13 @@ async def process_feed(
         })
         summarized_ids.append(eid)
 
-    save_cache(url, cache)
+    if not summarize_only:
+        save_cache(url, cache)
     print(f"  新規要約: {len(summarized_ids)}件")
     return articles, []
 
 
-async def main(*, summarize_only: bool = False):
+async def _main(*, summarize_only: bool = False):
     feeds_data = load_feeds()
     app = App(name=APP_NAME, root_agent=summarizer_agent)
     runner = InMemoryRunner(app=app)
@@ -132,19 +118,30 @@ async def main(*, summarize_only: bool = False):
     all_articles: list[dict] = []
     all_errors: list[str] = []
     updated_feeds: list[dict] = []
-    for feed_info in feeds_data["feeds"]:
-        if feed_info.get("active") is False:
-            continue
-        articles, errors = await process_feed(runner, feed_info)
-        if articles:
-            updated_feeds.append(feed_info)
+    active_feeds = [f for f in feeds_data["feeds"] if f.get("active") is not False]
+    transport = UrllibJsonGetTransport()
+    for feed_info in active_feeds:
+        if source_type(feed_info) == "raindrop":
+            articles, errors = await process_raindrop(runner, feed_info, summarize=summarize,
+                transport=transport, summarize_only=summarize_only)
+        else:
+            articles, errors = await process_feed(runner, feed_info, summarize_only=summarize_only)
+            if articles:
+                updated_feeds.append(feed_info)
         all_articles.extend(articles)
         all_errors.extend(errors)
 
+    pending_count = sum(
+        item.get("status") != "done"
+        for feed in active_feeds
+        for item in feed.get("_state", {}).get("items", {}).values()
+    )
+    pending_count -= sum("_raindrop_id" in article for article in all_articles)
+    pending_section = f"\nRaindrop 未処理: {pending_count}件" if any(source_type(f) == "raindrop" for f in active_feeds) else ""
     error_section = ""
     if all_errors:
         error_lines = "\n".join(f"• {e}" for e in all_errors)
-        error_section = f"\n:warning: フォーマットエラー:\n{error_lines}"
+        error_section = f"\n:warning: 取得・処理エラー:\n{error_lines}"
 
     if all_articles:
         if summarize_only:
@@ -160,11 +157,13 @@ async def main(*, summarize_only: bool = False):
         now = datetime.now(timezone.utc).isoformat()
         for feed_info in updated_feeds:
             feed_info["last_fetched"] = now
-        save_status({"feeds": updated_feeds})
+        if updated_feeds:
+            save_status({"feeds": updated_feeds})
 
         rel = Path("ai-generated") / "feed" / output_md_full_path.resolve().relative_to(
             get_feed_out_dir().resolve()
         )
+        mark_output_done(all_articles)
         obsidian_url = build_obsidian_open_url(rel)
         msg = (
             f"ai-generated/feed/ に {len(all_articles)}件の記事を追加しました\n"
@@ -173,13 +172,19 @@ async def main(*, summarize_only: bool = False):
         print(f"\n{msg}")
         if error_section:
             print(error_section)
-        notify_slack(f":newspaper: RSS Reader 完了: {msg}{error_section}")
+        notify_slack(f":newspaper: Reader 完了: {msg}{pending_section}{error_section}")
     else:
         print("\n新規記事はありません")
         if error_section:
             print(error_section)
         if not summarize_only:
-            notify_slack(f":newspaper: RSS Reader 完了: 新規記事はありません{error_section}")
+            notify_slack(f":newspaper: Reader 完了: 新規記事はありません{pending_section}{error_section}")
+
+
+async def main(*, summarize_only: bool = False):
+    lock = nullcontext() if summarize_only else reader_lock(get_obsidian_agent_dir())
+    with lock:
+        await _main(summarize_only=summarize_only)
 
 
 def run(*, summarize_only: bool = False):

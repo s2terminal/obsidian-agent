@@ -16,7 +16,7 @@ miseをインストールしたホストでは、コンテナを使わずに実�
 mise install
 ```
 
-RSSリーダーを実行します。
+RSS / Markdown / Raindrop の Reader を実行します。
 
 ```bash
 mise run run_reader
@@ -52,7 +52,7 @@ podman compose run --rm app bash
 
 ### Podman Composeでアプリを実行する
 
-RSSリーダーを実行します。
+RSS / Markdown / Raindrop の Reader を実行します。
 
 ```bash
 podman compose run --rm app python main.py reader
@@ -120,3 +120,9 @@ ADKについてはSkillかMCPかllms.txtが使える。
 ```bash
 npx skills add google/adk-docs/skills
 ```
+
+## Raindrop の後で読む
+
+`.env` に `RAINDROP_ACCESS_TOKEN` を設定し、`feed.md` にコレクション URL を追加します。
+初回は最新1件、以降は保存日時に基づいて新着を取り込みます。API は GET のみで、Raindrop のデータは変更しません。
+設定例と状態管理は [Reader の README](scripts/reader/README.md#raindrop-の設定) を参照してください。

@@ -4,7 +4,7 @@ from time import struct_time
 
 import pytest
 
-from reader.parser import entry_content, entry_id, entry_published_date, entry_published_datetime
+from reader.sources.rss import entry_content, entry_id, entry_published_date, entry_published_datetime
 
 
 class TestEntryId:
