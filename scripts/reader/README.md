@@ -8,14 +8,17 @@ RSS / Markdown / Raindrop から最新記事を取得し、Google ADK (Gemini) �
 
 ```bash
 mise run run_reader
-mise run run_reader -- --summarize-only
+mise run feed_check
+mise run feed_check -- --fetch
+mise run feed_check -- --summarize
 ```
 
 Podman Composeを使う場合:
 
 ```bash
 podman compose run --rm app python main.py reader
-podman compose run --rm app python main.py reader --summarize-only
+podman compose run --rm app python main.py reader check --fetch
+podman compose run --rm app python main.py reader check --summarize
 ```
 
 ### 前提条件
@@ -75,14 +78,36 @@ feeds:
 
 重要でないフィード（`low`）では詳細な要約を省くことで、要約の判定LLM呼び出しも省略される。
 
-## 要約のみモード（--summarize-only）
+## チェックモード（reader check）
 
-`main.py reader --summarize-only` を付けると、要約を生成して標準出力へ流します。
+`main.py reader check` は、設定と実行状態の確認をまとめたコマンドです。
+どのモードでもファイル・状態は一切更新しません。
+
+| コマンド | 動作 |
+|---|---|
+| `reader check` | `feed.md` の設定と `status.yaml` の取得位置・未処理件数を表示（ネットワークアクセスなし） |
+| `reader check --fetch` | 上記に加えて実際にフィードを取得し、取得件数・新着件数・要約対象の目安を表示（要約はしない） |
+| `reader check --summarize` | 取得した記事の要約まで行い、標準出力へ流す |
+
+`--fetch` は `active: false` のフィードを取得しません。取得に失敗したフィードは
+`fetch : 失敗 (理由)` と表示し、他のフィードの確認は続行します。
+トークン未設定などの取得エラー以外は、秘密情報の混入を避けるため例外の型だけを表示します。
+
+`--fetch` の表示項目:
+
+- `entries`: フィードから取得できた記事の総数（Raindrop は取得位置より新しい記事のみ）
+- `new_entries`: `last_fetched` より新しく、次回の要約対象になる記事数
+- `retry`: 要約に失敗して再試行を待っている記事数（Raindrop は未処理の保存記事数）
+- `summarize`: `max_articles` の上限を適用した要約件数の目安
+
+`--summarize` は以下のとおり副作用がありません。
 
 - 要約ファイルは保存しない
 - `status.yaml` の `last_fetched` は更新しない
 - Slack通知は送らない
 - RSS のキャッシュと Raindrop の記事状態も変更しない
+
+`--fetch` と `--summarize` を同時に指定した場合は、二重取得を避けるため `--summarize` の動作になります。
 
 ## 処理フロー
 

@@ -19,28 +19,34 @@ def cli() -> None:
 
 
 @reader_app.callback(invoke_without_command=True)
-def reader(
-    ctx: typer.Context,
-    summarize_only: Annotated[
-        bool,
-        typer.Option(
-            "--summarize-only",
-            help="要約を生成して標準出力に流します。last_fetched と要約ファイルは更新しません",
-        ),
-    ] = False,
-):
+def reader(ctx: typer.Context):
     """RSS / Markdown / Raindrop を取得・要約します。"""
     if ctx.invoked_subcommand is not None:
         return
     from reader.main import run as run_reader_main
-    run_reader_main(summarize_only=summarize_only)
+    run_reader_main()
 
 
 @reader_app.command("check")
-def reader_check() -> None:
+def reader_check(
+    fetch: Annotated[
+        bool,
+        typer.Option(
+            "--fetch",
+            help="設定に加えて実際にフィードを取得し、取得件数と要約対象の目安を表示します",
+        ),
+    ] = False,
+    summarize: Annotated[
+        bool,
+        typer.Option(
+            "--summarize",
+            help="取得した記事の要約まで行い標準出力に流します。last_fetched と要約ファイルは更新しません",
+        ),
+    ] = False,
+) -> None:
     """ソース設定と取得位置・未処理件数を表示します。"""
     from reader.checker import check
-    check()
+    check(fetch=fetch, summarize=summarize)
 
 
 @research_app.callback(invoke_without_command=True)
