@@ -21,8 +21,13 @@ RSS / Markdown / Raindrop の Reader を実行します。
 ```bash
 mise run run_reader
 mise run feed_check
-mise run run_reader -- --summarize-only
+mise run feed_check -- --fetch
+mise run feed_check -- --summarize
 ```
+
+`feed_check` は設定のみを表示します。`--fetch` を付けると実際にフィードを取得して
+件数を確認し、`--summarize` では要約まで行って標準出力に流します。
+いずれもファイルや取得位置は更新しません。
 
 リサーチ機能のクエリは、`--`以降に指定します。
 
@@ -58,12 +63,13 @@ RSS / Markdown / Raindrop の Reader を実行します。
 podman compose run --rm app python main.py reader
 ```
 
-設定したフィードの確認と、ファイルを更新しない要約のみの実行には、
+設定したフィードの確認と、ファイルを更新しない取得・要約の確認には、
 以下のコマンドを使用します。
 
 ```bash
 podman compose run --rm app python main.py reader check
-podman compose run --rm app python main.py reader --summarize-only
+podman compose run --rm app python main.py reader check --fetch
+podman compose run --rm app python main.py reader check --summarize
 ```
 
 リサーチ機能のクエリは、`research`以降に指定します。

@@ -8,14 +8,17 @@ RSS / Markdown / Raindrop から最新記事を取得し、Google ADK (Gemini) �
 
 ```bash
 mise run run_reader
-mise run run_reader -- --summarize-only
+mise run feed_check
+mise run feed_check -- --fetch
+mise run feed_check -- --summarize
 ```
 
 Podman Composeを使う場合:
 
 ```bash
 podman compose run --rm app python main.py reader
-podman compose run --rm app python main.py reader --summarize-only
+podman compose run --rm app python main.py reader check --fetch
+podman compose run --rm app python main.py reader check --summarize
 ```
 
 ### 前提条件
@@ -75,14 +78,15 @@ feeds:
 
 重要でないフィード（`low`）では詳細な要約を省くことで、要約の判定LLM呼び出しも省略される。
 
-## 要約のみモード（--summarize-only）
+## チェックモード（reader check）
 
-`main.py reader --summarize-only` を付けると、要約を生成して標準出力へ流します。
+確認用のコマンド。いずれもファイル・状態・Slack通知などの副作用はない。
 
-- 要約ファイルは保存しない
-- `status.yaml` の `last_fetched` は更新しない
-- Slack通知は送らない
-- RSS のキャッシュと Raindrop の記事状態も変更しない
+| コマンド | 動作 |
+|---|---|
+| `reader check` | 設定と取得位置・未処理件数を表示（取得なし） |
+| `reader check --fetch` | 実際にフィードを取得して、取得件数・新着件数・要約対象の目安を表示 |
+| `reader check --summarize` | 取得した記事の要約まで行い標準出力へ流す |
 
 ## 処理フロー
 
