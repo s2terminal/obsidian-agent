@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -103,6 +104,8 @@ def test_cli_check_options_replace_summarize_only():
     runner = CliRunner()
     help_result = runner.invoke(main.app, ['reader', 'check', '--help'])
     assert help_result.exit_code == 0
-    assert '--fetch' in help_result.stdout and '--summarize' in help_result.stdout
+    # rich は色付き出力でオプション名を装飾で分割するため、エスケープを除去して比較する
+    plain = re.sub(r'\x1b\[[0-9;]*m', '', help_result.stdout)
+    assert '--fetch' in plain and '--summarize' in plain
     removed = runner.invoke(main.app, ['reader', '--summarize-only'])
     assert removed.exit_code != 0
