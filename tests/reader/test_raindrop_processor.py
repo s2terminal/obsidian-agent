@@ -45,6 +45,17 @@ async def test_initial_one_and_title_only_never_calls_llm(storage):
     assert load_state(storage)['raindrop'][URL]['items']['1']['status'] == 'done'
 
 
+async def test_web_url_only_overrides_collection_link(storage):
+    entry = item(1, excerpt='')
+    articles, errors = await process_raindrop(None,
+        source() | {'web_url': 'https://example.com/collection'},
+        summarize=AsyncMock(), transport=transport([entry]))
+    assert not errors
+    assert articles[0]['feed_link'] == 'https://example.com/collection'
+    assert articles[0]['link'] == entry['link']
+    assert '1' in load_state(storage)['raindrop'][URL]['items']
+
+
 async def test_backlog_limit_and_retry_without_api_item(storage):
     save_state(storage, {'feeds': {}, 'raindrop': {URL: {
         'last_fetched': BASE.isoformat(), 'boundary_ids': [], 'items': {}}}})

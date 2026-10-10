@@ -92,7 +92,8 @@ async def process_raindrop(runner, feed, *, summarize, transport, summarize_only
         articles.append({
             "title": title, "link": item.get("link", ""), "summary": item.get("summary"),
             "published": _time(item.get("saved_at")).astimezone(get_timezone()).strftime("%Y/%m/%d"),
-            "feed_title": resolve_title(feed, "Raindrop の後で読む") + "（保存日）", "feed_link": url,
+            "feed_title": resolve_title(feed, "Raindrop の後で読む") + "（保存日）",
+            "feed_link": feed.get("web_url", url),
             "content_kind": "excerpt" if _has_excerpt(item) else "none", "_raindrop_id": eid, "_source_url": url,
         })
     feed["_state"] = state

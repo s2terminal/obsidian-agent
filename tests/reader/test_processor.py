@@ -26,6 +26,56 @@ class TestProcessFeed:
         from reader.cache import save_cache
         save_cache(url, cache, self.cache_dir)
 
+    @pytest.mark.parametrize("web_url", [None, "https://example.com/releases"])
+    @pytest.mark.parametrize("retry", [False, True])
+    async def test_markdown_display_links_and_fetch_identity(self, monkeypatch, web_url, retry):
+        from reader.main import process_feed
+        from reader.sources import markdown
+        from reader.writer import render_news
+
+        url = "https://example.com/releases.md"
+        entries = markdown.parse_md_feed(url, "## September 06, 2026\n本文")
+        fetch = MagicMock(return_value=entries)
+        monkeypatch.setattr(markdown, "fetch_md_feed", fetch)
+        summarize = AsyncMock(return_value="要約")
+        monkeypatch.setattr("reader.main.summarize", summarize)
+        if retry:
+            self._save_cache(url, {entries[0]["id"]: {
+                "title": "再試行", "link": "https://example.com/old.md",
+                "content": "再試行本文", "published": "2026/09/06",
+            }})
+        feed = {"url": url, "title": "更新"}
+        if web_url is not None:
+            feed["web_url"] = web_url
+        articles, errors = await process_feed(MagicMock(), feed)
+        assert errors == []
+        fetch.assert_called_once_with(url)
+        assert len(articles) == 1
+        expected_link = web_url or url
+        assert articles[0]["feed_link"] == expected_link
+        expected_article_link = web_url or ("https://example.com/old.md" if retry else url)
+        assert articles[0]["link"] == expected_article_link
+        rendered = render_news(articles)
+        assert f"### [更新]({expected_link})" in rendered
+        assert f"#### [{articles[0]['title']}]({expected_article_link})" in rendered
+        assert self._load_cache(url) == {}
+        assert cache_path(url, self.cache_dir).exists()
+        assert summarize.await_args.args[2] == ("再試行本文" if retry else "本文")
+
+    async def test_rss_web_url_only_overrides_feed_link(self, monkeypatch):
+        from reader.main import process_feed
+
+        parse = MagicMock(return_value=self._make_feed_result([self._make_entry()]))
+        monkeypatch.setattr("reader.sources.rss.feedparser.parse", parse)
+        monkeypatch.setattr("reader.main.summarize", AsyncMock(return_value="要約"))
+        articles, errors = await process_feed(MagicMock(), {
+            "url": "https://example.com/rss", "web_url": "https://example.com/home",
+        })
+        assert errors == []
+        parse.assert_called_once_with("https://example.com/rss")
+        assert articles[0]["feed_link"] == "https://example.com/home"
+        assert articles[0]["link"] == "https://example.com/1"
+
     def _make_entry(self, eid="e1", title="Test Article", link="https://example.com/1",
                     summary="Article content"):
         return {"id": eid, "title": title, "link": link, "summary": summary}

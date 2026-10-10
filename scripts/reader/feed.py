@@ -46,6 +46,10 @@ def validate_feeds(data: object) -> dict:
     for feed in data["feeds"]:
         if not isinstance(feed, dict) or not isinstance(feed.get("url"), str) or not feed["url"].strip():
             raise ValueError("各フィードには空でないurlが必要です")
+        if "web_url" in feed:
+            if not isinstance(feed["web_url"], str) or not feed["web_url"].strip():
+                raise ValueError("web_urlには空でない文字列が必要です")
+            feed["web_url"] = feed["web_url"].strip()
         if source_type(feed) == "raindrop":
             feed["url"] = raindrop_url(feed["url"])[0]
             if "max_articles" in feed and (type(feed["max_articles"]) is not int or feed["max_articles"] < 1):

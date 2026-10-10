@@ -56,15 +56,22 @@ feeds:
 - url: https://example.com/rss
   max_articles: 10
   importance: low
+- url: https://example.com/release-notes.md
+  web_url: https://example.com/release-notes
+  title: リリースノート
 ```
 ````
 
 - `url`: フィードまたは Raindrop コレクションの URL。必須、ファイル内で一意
+- `web_url`: 任意の閲覧用URL。指定する場合は空でない文字列。フィード見出しのリンク先に使い、Markdownでは記事見出しにも使います。RSS / Raindropの記事リンクは各記事のURLを使います。省略時は従来のリンク先を使います。
 - `title`: 任意の表示名。RSS本体のタイトルより優先します。
 - `active`: `false` のフィードは処理しません。
 - `max_articles`: 最大要約件数。省略時は通常5件、取得時刻のない新規フィードは1件。
 - `importance`: 要約の詳しさ。省略時は `normal` 。
 - `type`: `markdown` を指定するとMarkdown形式として取得。URL末尾が `.md` または `.md.txt` の場合も自動判定。
+
+取得先、記事ID、キャッシュ、`status.yaml` の識別には引き続き `url` を使います。
+`web_url` の変更は次回生成する出力（要約の再試行を含む）に反映され、既存の出力ファイルは書き換えません。
 
 ### importance（重要度）による要約の出し分け
 

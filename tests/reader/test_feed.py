@@ -47,6 +47,22 @@ def test_changed_url_does_not_inherit_status(tmp_path):
     assert load_feeds(tmp_path) == {"feeds": [{"url": "new"}]}
 
 
+def test_web_url_change_preserves_status(tmp_path):
+    write_config(tmp_path, [{"url": "source.md", "web_url": "https://example.com/old"}])
+    save_status({"feeds": [{"url": "source.md", "last_fetched": "old"}]}, tmp_path)
+    write_config(tmp_path, [{"url": "source.md", "web_url": " https://example.com/new "}])
+    assert load_feeds(tmp_path)["feeds"][0] == {
+        "url": "source.md", "web_url": "https://example.com/new", "last_fetched": "old",
+    }
+
+
+@pytest.mark.parametrize("web_url", [None, "", "  ", 123, False, [], {}])
+def test_invalid_web_url(tmp_path, web_url):
+    write_config(tmp_path, [{"url": "source.md", "web_url": web_url}])
+    with pytest.raises(ValueError, match="web_url"):
+        load_feeds(tmp_path)
+
+
 @pytest.mark.parametrize("feeds", [[{"url": "a"}, {"url": "a"}], [{}]])
 def test_invalid_config(tmp_path, feeds):
     write_config(tmp_path, feeds)

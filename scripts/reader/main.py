@@ -43,7 +43,8 @@ async def process_feed(
         print(f"  取得失敗: {exc}: {url}")
         return [], []
     entries = result.articles
-    feed_title, feed_link = result.source_title, result.source_link
+    feed_title = result.source_title
+    feed_link = feed_info.get("web_url", result.source_link)
 
     cache = load_cache(url)
     importance = feed_importance(feed_info)
@@ -99,7 +100,8 @@ async def process_feed(
         cache.pop(eid, None)
 
         articles.append({
-            "title": title, "link": link, "summary": summary, "published": published,
+            "title": title, "link": feed_info.get("web_url", link) if is_markdown else link,
+            "summary": summary, "published": published,
             "feed_title": feed_title, "feed_link": feed_link,
         })
         summarized_ids.append(eid)
