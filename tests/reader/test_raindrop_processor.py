@@ -75,7 +75,7 @@ async def test_backlog_limit_and_retry_without_api_item(storage):
 async def test_summary_failure_keeps_cursor_and_retries(storage):
     summarize = AsyncMock(side_effect=RuntimeError('secret'))
     articles, errors = await process_raindrop(None, source(), summarize=summarize, transport=transport([item(1)]))
-    assert not articles and 'secret' not in str(errors)
+    assert not articles and 'secret' not in str(errors) and 'RuntimeError' in str(errors)
     state = load_state(storage)['raindrop'][URL]
     assert state['last_fetched'] == BASE.isoformat()
     assert state['items']['1']['status'] == 'pending'

@@ -7,6 +7,7 @@ from reader.feed import feed_importance
 from reader.models import SourceFetchError, utc_datetime
 from reader.sources.raindrop import RaindropClient, RaindropSourceConfig
 from reader.sources.rss import resolve_title
+from reader.summarizer import describe_summary_error
 from reader.state import cursor_from_state, load_state, save_state
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -81,9 +82,9 @@ async def process_raindrop(runner, feed, *, summarize, transport, summarize_only
                     if not item["summary"] or not item["summary"].strip():
                         raise ValueError("要約が空です")
                 item["status"] = "ready"
-            except Exception:
-                # LLMの例外には入力等を含む場合があるため、生の例外は通知しない。
-                errors.append(f"Raindropの要約に失敗しました（記事ID: {eid}）: {url}")
+            except Exception as exc:
+                # LLMの例外には入力等を含む場合があるため、生の例外ではなく型とコードのみ通知する。
+                errors.append(f"Raindropの要約に失敗しました（記事ID: {eid}、{describe_summary_error(exc)}）: {url}")
                 if not summarize_only:
                     _persist(url, state)
                 continue

@@ -91,6 +91,7 @@ class TestMain:
         save_status.assert_called_once_with(feeds_data)
         notify_slack.assert_called_once()
         sent_message = notify_slack.call_args[0][0]
+        assert sent_message.startswith(":newspaper: Reader 完了: ")
         assert "ai-generated/feed/ に 1件の記事を追加しました" in sent_message
         assert "obsidian://open?vault=RemoteVault&file=ai-generated/feed/2026/03-30.md" in sent_message
 
@@ -133,6 +134,7 @@ class TestMain:
 
         notify_slack.assert_called_once()
         sent_message = notify_slack.call_args[0][0]
+        assert sent_message.startswith(":rotating_light: Reader エラーあり: 新規記事はありません")
         assert ":warning: 取得・処理エラー:" in sent_message
         assert error_msg in sent_message
 

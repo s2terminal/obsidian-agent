@@ -172,6 +172,28 @@ class TestProcessFeed:
         cache = load_cache("https://example.com/feed", self.cache_dir)
         assert cache["e1"]["title"] == "Fail Article"
         assert "status" not in cache["e1"]
+        # 要約失敗は通知用エラーとして返し、生の例外メッセージは含めない
+        assert errors == ["要約に失敗しました（1件、Exception）: https://example.com/feed"]
+
+    @pytest.mark.asyncio
+    @patch("reader.main.summarize", new_callable=AsyncMock)
+    @patch("reader.sources.rss.feedparser.parse")
+    async def test_summarize_api_error_reports_code_and_status(self, mock_parse, mock_summarize):
+        from google.genai.errors import ClientError
+
+        mock_parse.return_value = self._make_feed_result([
+            self._make_entry("e1", "Article 1"),
+            self._make_entry("e2", "Article 2"),
+        ])
+        mock_summarize.side_effect = ClientError(
+            402, {"error": {"code": 402, "message": "credits depleted", "status": "RESOURCE_EXHAUSTED"}}
+        )
+
+        from reader.main import process_feed
+        articles, errors = await process_feed(MagicMock(), {"url": "https://example.com/feed"})
+
+        assert articles == []
+        assert errors == ["要約に失敗しました（2件、ClientError 402 RESOURCE_EXHAUSTED）: https://example.com/feed"]
 
     @pytest.mark.asyncio
     @patch("reader.sources.rss.feedparser.parse")

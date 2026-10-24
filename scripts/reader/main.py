@@ -19,7 +19,7 @@ from reader.cache import load_cache, save_cache
 from reader.config import APP_NAME, MAX_ARTICLES, MAX_ARTICLES_NEW, get_feed_out_dir, get_obsidian_agent_dir
 from reader.feed import feed_importance, load_feeds, parse_last_fetched, save_status
 from reader.notifier import notify_slack
-from reader.summarizer import summarize, summarizer_agent
+from reader.summarizer import describe_summary_error, summarize, summarizer_agent
 from reader.writer import render_news, write_news
 from reader.state import reader_lock
 from reader.sources.raindrop import UrllibJsonGetTransport
@@ -50,6 +50,7 @@ async def process_feed(
     importance = feed_importance(feed_info)
     articles: list[dict] = []
     summarized_ids: list[str] = []
+    failures: list[str] = []
 
     # last_fetched を解析して、それより新しい記事のみ処理する
     last_fetched = parse_last_fetched(feed_info)
@@ -89,6 +90,7 @@ async def process_feed(
             summary = await summarize(runner, str(title), content, importance=importance)
         except Exception as e:
             print(f"  要約失敗 タイトル: {title} エラー: {e}")
+            failures.append(describe_summary_error(e))
             # fetch済み・要約失敗 → キャッシュに保存してリトライ対象にする
             cache[eid] = {
                 "title": title, "link": link,
@@ -109,7 +111,12 @@ async def process_feed(
     if not summarize_only:
         save_cache(url, cache)
     print(f"  新規要約: {len(summarized_ids)}件")
-    return articles, []
+    errors: list[str] = []
+    if failures:
+        # LLMの例外には入力等を含む場合があるため、生の例外ではなく型とコードのみ通知する。
+        kinds = "、".join(dict.fromkeys(failures))
+        errors.append(f"要約に失敗しました（{len(failures)}件、{kinds}）: {url}")
+    return articles, errors
 
 
 async def _main(*, summarize_only: bool = False):
@@ -144,6 +151,7 @@ async def _main(*, summarize_only: bool = False):
     if all_errors:
         error_lines = "\n".join(f"• {e}" for e in all_errors)
         error_section = f"\n:warning: 取得・処理エラー:\n{error_lines}"
+    header = ":rotating_light: Reader エラーあり" if all_errors else ":newspaper: Reader 完了"
 
     if all_articles:
         if summarize_only:
@@ -174,13 +182,13 @@ async def _main(*, summarize_only: bool = False):
         print(f"\n{msg}")
         if error_section:
             print(error_section)
-        notify_slack(f":newspaper: Reader 完了: {msg}{pending_section}{error_section}")
+        notify_slack(f"{header}: {msg}{pending_section}{error_section}")
     else:
         print("\n新規記事はありません")
         if error_section:
             print(error_section)
         if not summarize_only:
-            notify_slack(f":newspaper: Reader 完了: 新規記事はありません{pending_section}{error_section}")
+            notify_slack(f"{header}: 新規記事はありません{pending_section}{error_section}")
 
 
 async def main(*, summarize_only: bool = False):

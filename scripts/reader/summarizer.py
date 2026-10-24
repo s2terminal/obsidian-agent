@@ -230,3 +230,13 @@ async def summarize(
         except Exception as e:
             print(f"Langfuse出力トレーシング失敗: {e}")
     return result
+
+
+def describe_summary_error(exc: Exception) -> str:
+    """要約失敗の通知用に、入力を含まない短い説明（例外型とAPIのコード・ステータス）を返す。"""
+    parts = [type(exc).__name__]
+    for attr in ("code", "status"):
+        value = getattr(exc, attr, None)
+        if value is not None:
+            parts.append(str(value))
+    return " ".join(parts)
