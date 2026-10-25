@@ -3,8 +3,10 @@ name = "obsidian-agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14.1"
+requires-python = ">=3.14.9"
 dependencies = [
+    # eMudhra中間CA鍵漏えい(2026-10)対応: 該当CAを除外したCAバンドルを必須にする
+    "certifi>=2026.10.19",
     "feedparser>=6.0.12",
     "google-cloud-aiplatform[adk,agent-engines]>=1.112",
     "google-genai>=2.0.0",
