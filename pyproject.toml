@@ -3,8 +3,10 @@ name = "obsidian-agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14.1"
+requires-python = ">=3.14.9"
 dependencies = [
+    # eMudhra中間CA鍵漏えい(2026-10)対応: 該当CAを除外したCAバンドルを必須にする
+    "certifi>=2026.10.19",
     "feedparser>=6.0.12",
     "google-cloud-aiplatform[adk,agent-engines]>=1.112",
     "google-genai>=2.0.0",
@@ -33,3 +35,9 @@ filterwarnings = [
 markers = [
     "llm_eval: LLMを実際に呼び出す評価テスト（明示的に -m llm_eval で実行）",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
+# 緊急のセキュリティ修正は猶予なしで取り込む（eMudhra中間CA鍵漏えい対応）
+exclude-newer-package = { certifi = false }
+

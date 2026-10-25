@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.14-slim AS base
+FROM docker.io/library/python:3.14.9-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
+
+# ベースイメージのキャッシュが古くても、OSのCA証明書は常に最新化する
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir uv
 
