@@ -35,3 +35,9 @@ filterwarnings = [
 markers = [
     "llm_eval: LLMを実際に呼び出す評価テスト（明示的に -m llm_eval で実行）",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
+# 緊急のセキュリティ修正は猶予なしで取り込む（eMudhra中間CA鍵漏えい対応）
+exclude-newer-package = { certifi = false }
+
