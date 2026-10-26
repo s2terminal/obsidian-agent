@@ -1,4 +1,6 @@
 [tools]
+# .python-version / pyproject.toml の requires-python と揃える
+python = "3.14.9"
 node = "lts"
 npm = "latest"
 uv = "latest"

@@ -3,7 +3,7 @@ name = "obsidian-agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14.9"
+requires-python = ">=3.14.9,<3.15"
 dependencies = [
     # eMudhra中間CA鍵漏えい(2026-10)対応: 該当CAを除外したCAバンドルを必須にする
     "certifi>=2026.10.19",
