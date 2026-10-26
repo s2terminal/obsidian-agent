@@ -10,7 +10,7 @@ Obsidianのノートに対してAIエージェントで操作を行うツール�
 ## ホストでmiseを使う
 
 miseをインストールしたホストでは、コンテナを使わずに実行できます。
-初回はmiseでNode.js、npm、uvをインストールします。
+初回はmiseでPython（3.14系）、Node.js、npm、uvをインストールします。
 
 ```bash
 mise install
