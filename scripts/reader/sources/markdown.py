@@ -5,6 +5,7 @@ Markdown ファイルを feedparser エントリ互換の dict リストとし�
 """
 
 import hashlib
+import re
 import urllib.request
 from datetime import datetime, timezone
 from time import struct_time
@@ -19,6 +20,15 @@ def is_markdown_feed(feed_info: dict) -> bool:
         return True
     url = feed_info.get("url", "")
     return url.endswith(".md") or url.endswith(".md.txt")
+
+
+# 見出し末尾に付く Markdoc 風の属性タグ（例: `{% id="11-02-2026" %}`）
+_HEADING_ATTR_RE = re.compile(r"\s*\{%.*?%\}\s*$")
+
+
+def _normalize_heading(line: str) -> str:
+    """見出し行から末尾の属性タグと余分な空白を取り除く。"""
+    return _HEADING_ATTR_RE.sub("", line).rstrip()
 
 
 def _parse_date(heading: str) -> struct_time | None:
@@ -63,8 +73,8 @@ def parse_md_feed(url: str, text: str) -> list[dict]:
     for line in lines:
         if line.startswith("## "):
             _flush()
-            current_heading = line
-            current_struct = _parse_date(line)
+            current_heading = _normalize_heading(line)
+            current_struct = _parse_date(current_heading)
             current_lines = []
         elif current_heading is not None:
             current_lines.append(line)

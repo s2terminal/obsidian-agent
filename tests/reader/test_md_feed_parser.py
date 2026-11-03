@@ -118,3 +118,21 @@ class TestIsMarkdownFeed:
 
     def test_no_url(self):
         assert is_markdown_feed({}) is False
+
+
+class TestHeadingAttributes:
+    def test_parses_heading_with_trailing_attribute_tag(self):
+        text = (
+            '> ## AI Agent Context\n> Get the index\n\n# Release notes\n\n'
+            '## November 2, 2026  {% id="11-02-2026" %}\n\n* Item A\n\n'
+            '## October 30, 2026 {% id="10-30-2026" %}\n\n* Item B\n'
+        )
+        entries = parse_md_feed(URL, text)
+        assert [e["title"] for e in entries] == ["November 2, 2026", "October 30, 2026"]
+        assert entries[0]["published_parsed"].tm_mday == 2
+        assert "Item A" in entries[0]["summary"]
+
+    def test_id_unaffected_by_attribute_tag(self):
+        plain = parse_md_feed(URL, "## May 28, 2026\n\nBody\n")
+        tagged = parse_md_feed(URL, '## May 28, 2026  {% id="05-28-2026" %}\n\nBody\n')
+        assert plain[0]["id"] == tagged[0]["id"]
